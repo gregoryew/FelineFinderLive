@@ -980,6 +980,66 @@ export const getWorkSchedule = functions.https.onCall(async (data, context) => {
   }
 })
 
+// Search organizations by name
+export const searchOrganizationsByName = functions.https.onRequest(async (req, res) => {
+  return corsHandler(req, res, async () => {
+    if (req.method === 'OPTIONS') {
+      res.status(200).send('')
+      return
+    }
+
+    try {
+      const { name } = req.query
+
+      if (!name || typeof name !== 'string') {
+        res.status(400).json({ error: 'Organization name is required' })
+        return
+      }
+
+      console.log('Searching organizations by name:', name)
+
+      // Search in RescueGroups API
+      const config = getEnvironmentConfig()
+      const apiKey = config.rescuegroups.api_key
+      
+      const response = await fetch(`https://api.rescuegroups.org/v5/public/organizations?filter[name]=${encodeURIComponent(name)}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        console.error('RescueGroups API error:', response.status, response.statusText)
+        res.status(500).json({ error: 'Failed to search organizations' })
+        return
+      }
+      
+      const data = await response.json()
+      
+      const organizations = data.data?.map((org: any) => ({
+        id: org.id,
+        name: org.attributes?.name || 'Unknown',
+        city: org.attributes?.city || '',
+        state: org.attributes?.state || '',
+        email: org.attributes?.email || '',
+        website: org.attributes?.website || ''
+      })) || []
+
+      console.log(`Found ${organizations.length} organizations matching "${name}"`)
+
+      res.json({
+        success: true,
+        organizations: organizations
+      })
+
+    } catch (error) {
+      console.error('Search organizations error:', error)
+      res.status(500).json({ error: 'Failed to search organizations' })
+    }
+  })
+})
+
 // Save work schedule
 export const saveWorkSchedule = functions.https.onCall(async (data, context) => {
   try {
