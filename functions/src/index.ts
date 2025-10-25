@@ -76,10 +76,10 @@ const validateOrgIdWithRescueGroups = async (orgId: string) => {
     } else {
       return { valid: false, error: 'Organization not found' }
     }
-  } catch (error) {
+    } catch (error) {
     console.error('Error validating OrgID:', error)
     return { valid: false, error: error instanceof Error ? error.message : 'Unknown error' }
-  }
+    }
 }
 
 // Initiate organization setup
@@ -292,7 +292,7 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
             message: 'You are already registered with a different organization.',
             code: 'ALREADY_REGISTERED_DIFFERENT_ORG'
           })
-          return
+        return
         }
       }
 
@@ -313,8 +313,8 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
             message: 'Invalid organization ID. Please contact your organization administrator.',
             code: 'INVALID_ORG_ID'
           })
-          return
-        }
+        return
+      }
 
         orgData = {
           rescueGroupsId: orgId,
@@ -395,7 +395,7 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
       console.log('Added user to organization users array')
 
       res.json({
-        success: true,
+      success: true,
         message: 'User successfully registered with organization',
         userId: userId,
         orgId: orgId,
@@ -431,33 +431,33 @@ export const saveOnboardingStep = functions.https.onCall(async (data, context) =
 
     const userData = userDoc.data()
     const orgId = userData?.orgId
-
+    
     if (!orgId) {
       throw new functions.https.HttpsError('failed-precondition', 'User not associated with organization')
     }
 
     // Get organization data
-    const orgDoc = await admin.firestore().collection('organizations').doc(orgId).get()
+        const orgDoc = await admin.firestore().collection('organizations').doc(orgId).get()
     if (!orgDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'Organization not found')
     }
 
-    const orgData = orgDoc.data()
-
+        const orgData = orgDoc.data()
+        
     // Determine user role
     let userRole = 'volunteer'
-    if (orgData?.pendingSetup === true) {
-      userRole = 'admin'
+        if (orgData?.pendingSetup === true) {
+          userRole = 'admin'
     } else if (userData?.role === 'admin') {
-      userRole = 'admin'
+            userRole = 'admin'
     }
 
     // Update user document with step data
     const updateData: any = {
       [`onboarding.${step}`]: stepData,
-      onboardingUpdatedAt: FieldValue.serverTimestamp()
-    }
-
+          onboardingUpdatedAt: FieldValue.serverTimestamp()
+        }
+        
     await admin.firestore().collection('shelter_people').doc(userId).update(updateData)
 
     // If this is an admin completing organization setup, update organization
@@ -523,7 +523,7 @@ export const sendTeamMemberInvitations = functions.https.onCall(async (data, con
         email: email,
         name: name,
         role: role,
-        orgId: orgId,
+          orgId: orgId,
         invitedBy: userId,
         invitedAt: new Date().toISOString(),
         status: 'pending'
@@ -541,7 +541,7 @@ export const sendTeamMemberInvitations = functions.https.onCall(async (data, con
       invitations: invitations
     }
 
-  } catch (error) {
+    } catch (error) {
     console.error('Send invitations error:', error)
     throw error
   }
@@ -576,11 +576,11 @@ export const completeOnboarding = functions.https.onCall(async (data, context) =
     }
 
     // Update user's onboarding status
-    await admin.firestore().collection('shelter_people').doc(userId).update({
-      onboardingCompleted: true,
-      onboardingCompletedAt: FieldValue.serverTimestamp()
-    })
-
+      await admin.firestore().collection('shelter_people').doc(userId).update({
+        onboardingCompleted: true,
+        onboardingCompletedAt: FieldValue.serverTimestamp()
+      })
+      
     // Update organization
     const batch = admin.firestore().batch()
     const orgDocRef = admin.firestore().collection('organizations').doc(orgId)
@@ -608,7 +608,7 @@ export const completeOnboarding = functions.https.onCall(async (data, context) =
     await batch.commit()
 
     return { 
-      success: true, 
+      success: true,
       message: 'Onboarding completed successfully' 
     }
 
@@ -629,7 +629,7 @@ export const getOnboardingProgress = functions.https.onCall(async (data, context
     const { orgId: providedOrgId } = data
 
     console.log('GetOnboardingProgress (authenticated):', { userId, providedOrgId })
-
+    
     // Get user document
     const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
     
@@ -639,11 +639,11 @@ export const getOnboardingProgress = functions.https.onCall(async (data, context
 
     const userData = userDoc.data()
     const orgId = userData?.orgId || providedOrgId
-
+    
     if (!orgId) {
       throw new functions.https.HttpsError('failed-precondition', 'User not associated with organization')
     }
-
+    
     // Get organization document
     const orgDoc = await admin.firestore().collection('organizations').doc(orgId).get()
     
@@ -701,10 +701,10 @@ export const getOnboardingProgress = functions.https.onCall(async (data, context
       userRole: userData?.role || 'volunteer'
     }
 
-  } catch (error) {
+    } catch (error) {
     console.error('Get onboarding progress error:', error)
     throw error
-  }
+    }
 })
 
 // Google Calendar OAuth callback
@@ -728,9 +728,9 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
           ? 'http://localhost:3000' 
           : 'https://feline-finder-org-portal.web.app'
         res.redirect(`${frontendUrl}/onboarding?error=no_code`)
-        return
-      }
-
+    return
+  }
+  
       const config = getEnvironmentConfig()
       const oauth2Client = new OAuth2Client(
         config.gcal.client_id,
@@ -740,10 +740,11 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
 
       // Exchange code for tokens
       const { tokens } = await oauth2Client.getToken(code as string)
-      oauth2Client.setCredentials(tokens)
+          oauth2Client.setCredentials(tokens)
 
       // Get user info
-      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+      const oauth2 = google.oauth2('v2')
+      oauth2.context._options.auth = oauth2Client as any
       const userInfo = await oauth2.userinfo.get()
       const userEmail = userInfo.data.email
 
@@ -772,13 +773,13 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
       const orgId = userData.orgId
 
       // Create or update Firebase user
-      let firebaseUser
-      try {
-        firebaseUser = await admin.auth().getUserByEmail(userEmail)
+          let firebaseUser
+          try {
+            firebaseUser = await admin.auth().getUserByEmail(userEmail)
       } catch (error) {
         // User doesn't exist, create them
-        firebaseUser = await admin.auth().createUser({
-          email: userEmail,
+              firebaseUser = await admin.auth().createUser({
+                email: userEmail,
           displayName: userData.name || userEmail.split('@')[0]
         })
       }
@@ -841,53 +842,54 @@ export const listCalendars = functions.https.onCall(async (data, context) => {
     const userId = context.auth.uid
 
     // Get user's organization
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
-    if (!userDoc.exists) {
+      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
-    }
+      }
 
-    const userData = userDoc.data()
-    const orgId = userData?.orgId
-
-    if (!orgId) {
+      const userData = userDoc.data()
+      const orgId = userData?.orgId
+      
+      if (!orgId) {
       throw new functions.https.HttpsError('failed-precondition', 'User not associated with organization')
-    }
-
+      }
+      
     // Get organization's calendar tokens
-    const orgDoc = await admin.firestore().collection('organizations').doc(orgId).get()
-    if (!orgDoc.exists) {
+      const orgDoc = await admin.firestore().collection('organizations').doc(orgId).get()
+      if (!orgDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'Organization not found')
-    }
+      }
 
-    const orgData = orgDoc.data()
+      const orgData = orgDoc.data()
     const accessToken = orgData?.calendarAccessToken
-
+      
     if (!accessToken) {
       throw new functions.https.HttpsError('failed-precondition', 'Calendar not connected')
-    }
+      }
 
-    // Set up OAuth2 client
+      // Set up OAuth2 client
     const config = getEnvironmentConfig()
     const oauth2Client = new OAuth2Client(
-      config.gcal.client_id,
-      config.gcal.client_secret,
+        config.gcal.client_id,
+        config.gcal.client_secret,
       config.gcal.redirect_uri
-    )
+      )
 
-    oauth2Client.setCredentials({
+      oauth2Client.setCredentials({
       access_token: accessToken,
-      refresh_token: orgData.calendarRefreshToken
-    })
+        refresh_token: orgData.calendarRefreshToken
+      })
 
     // Get calendars
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+    const calendar = google.calendar('v3')
+    calendar.context._options.auth = oauth2Client as any
     const response = await calendar.calendarList.list()
 
     const calendars = response.data.items?.map(cal => ({
-      id: cal.id,
-      summary: cal.summary,
+        id: cal.id,
+        summary: cal.summary,
       primary: cal.primary
-    })) || []
+      })) || []
 
     console.log(`✅ Successfully retrieved ${calendars.length} calendars for organization ${orgId}`)
     console.log(`📋 Calendars: ${calendars.map(c => `${c.summary} (${c.id})`).join(', ')}`)
@@ -912,21 +914,21 @@ export const saveSelectedCalendar = functions.https.onCall(async (data, context)
 
     const userId = context.auth.uid
     const { calendarId, calendarName } = data
-
+    
     if (!calendarId) {
       throw new functions.https.HttpsError('invalid-argument', 'Calendar ID is required')
     }
 
     // Get user's organization
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
-    if (!userDoc.exists) {
-      throw new functions.https.HttpsError('not-found', 'User not found')
-    }
-
-    const userData = userDoc.data()
+      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found')
+      }
+      
+      const userData = userDoc.data()
     const orgId = userData?.orgId
-
-    if (!orgId) {
+      
+      if (!orgId) {
       throw new functions.https.HttpsError('failed-precondition', 'User not associated with organization')
     }
 
@@ -941,7 +943,7 @@ export const saveSelectedCalendar = functions.https.onCall(async (data, context)
       success: true,
       message: 'Calendar selection saved successfully'
     }
-
+    
   } catch (error) {
     console.error('Save selected calendar error:', error)
     throw error
@@ -958,21 +960,21 @@ export const getWorkSchedule = functions.https.onCall(async (data, context) => {
     const userId = context.auth.uid
 
     // Get user's shelter_people document
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
-    
-    if (!userDoc.exists) {
+      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      
+      if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
-    }
+      }
 
-    const userData = userDoc.data()
+      const userData = userDoc.data()
     
     return {
-      success: true,
+        success: true,
       operatingHours: userData?.operatingHours || [],
       userName: userData?.userName || context.auth.token.name || context.auth.token.email?.split('@')[0] || 'Unknown',
       workScheduleUpdatedAt: userData?.workScheduleUpdatedAt
     }
-  } catch (error) {
+    } catch (error) {
     console.error('Get work schedule error:', error)
     throw error
   }
@@ -1001,9 +1003,9 @@ export const saveWorkSchedule = functions.https.onCall(async (data, context) => 
     })
 
     console.log('Work schedule saved successfully for user:', userId)
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       message: 'Work schedule saved successfully' 
     }
   } catch (error) {
