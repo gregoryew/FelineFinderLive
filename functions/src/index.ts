@@ -1013,10 +1013,13 @@ export const searchOrganizationsByName = functions.https.onRequest(async (req, r
     }
 
     try {
-      const { name } = req.query
+      // Handle both query parameter and request body
+      const nameFromQuery = req.query.name
+      const nameFromBody = req.body?.query || req.body?.name
+      const name = nameFromQuery || nameFromBody
 
       if (!name || typeof name !== 'string') {
-        console.log('Missing or invalid name parameter:', req.query)
+        console.log('Missing or invalid name parameter:', { query: req.query, body: req.body })
         res.status(400).json({ error: 'Organization name is required' })
         return
       }
