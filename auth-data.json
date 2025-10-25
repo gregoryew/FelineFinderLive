@@ -1,0 +1,20 @@
+{"users": [
+{
+  "localId": "XTxWYtyGioNPa99zE4vFVxjGc3z2",
+  "email": "gregoryew@gmail.com",
+  "emailVerified": true,
+  "displayName": "Gregory Williams",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocJ-vSezAci8YYlHL_ohWs6S7RRvD2YlmerMdrHsM-YVlpsxFA=s96-c",
+  "lastSignedInAt": "1760321696373",
+  "createdAt": "1759722860252",
+  "disabled": false,
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "115678777531796404188",
+      "email": "gregoryew@gmail.com",
+      "displayName": "Gregory Williams",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocJ-vSezAci8YYlHL_ohWs6S7RRvD2YlmerMdrHsM-YVlpsxFA=s96-c"
+    }
+  ]
+}]}

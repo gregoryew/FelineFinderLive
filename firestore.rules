@@ -1,0 +1,138 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own document, admins/founders can read/write all users
+    match /users/{userId} {
+      allow read, write: if request.auth != null && (
+        request.auth.uid == userId || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder'])
+      );
+      // Allow creation of user document if it doesn't exist yet
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Organizations - allow users to read/write their own organization during onboarding
+    match /organizations/{orgId} {
+      allow read, write: if request.auth != null && (
+        // User can access their own organization (using their user ID as org ID during onboarding)
+        request.auth.uid == orgId ||
+        // Or if they're a member/admin of the organization
+        (resource != null && (
+          resource.data.members[request.auth.uid] != null || 
+          resource.data.admins[request.auth.uid] != null
+        )) ||
+        // Or if they have OrgID matching this organization
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.OrgID == orgId)
+      );
+    }
+    
+    // Organization locks - allow authenticated users to read/write
+    match /orgLocks/{orgId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Invitations - allow reading for validation, admins can write
+    match /invitations/{token} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Organization (singular) - allow authenticated users to read/write their own organization
+    match /organization/{orgId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Bookings - organization members can read, admins can write
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && 
+        (resource.data.organizationId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizations);
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.admins[request.auth.uid] == true;
+    }
+    
+    // Admin settings - only admins can access
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    // Organization email configuration - organization admins can read/write
+    match /organizationEmailConfig/{orgId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == orgId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Dashboard stats - organization members can read, admins can write
+    match /dashboardStats/{orgId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == orgId;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == orgId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Organization stats - organization members can read, admins can write
+    match /organizationStats/{orgId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == orgId;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == orgId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Organization settings - organization members can read, admins can write
+    match /organization/{OrgID} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.OrgID == OrgID;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.OrgID == OrgID &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Showings - organization members can read, admins/staff can write
+    match /showings/{showingId} {
+      allow read: if request.auth != null && 
+        resource.data.organizationId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rescueGroupsOrgId;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rescueGroupsOrgId == resource.data.organizationId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder', 'staff'];
+    }
+    
+    // Time slots - organization members can read, admins/staff can write
+    match /organizations/{orgId}/timeSlots/{slotId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rescueGroupsOrgId == orgId;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rescueGroupsOrgId == orgId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder', 'staff'];
+    }
+    
+    // Security logs - only admins can read, system can write
+    match /securityLogs/{logId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder'];
+      allow write: if request.auth != null; // System can write logs
+    }
+    
+    // Security alerts - only admins can read, system can write
+    match /securityAlerts/{alertId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder'];
+      allow write: if request.auth != null; // System can write alerts
+    }
+    
+    // User sessions - users can read their own, admins can read all
+    match /userSessions/{sessionId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'founder']
+      );
+      allow write: if request.auth != null; // System can write sessions
+    }
+  }
+}
