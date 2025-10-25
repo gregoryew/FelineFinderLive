@@ -1,0 +1,84 @@
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18",
+    "env": {
+      "RESCUEGROUPS_API_KEY": "0doJkmYU",
+      "AWS_REGION": "us-east-1",
+      "AWS_ACCESS_KEY_ID": "your_aws_access_key",
+      "AWS_SECRET_ACCESS_KEY": "your_aws_secret_key",
+      "AWS_SES_FROM_EMAIL": "noreply@felinefinder.org"
+    }
+  },
+  "hosting": {
+    "site": "feline-finder-org-portal",
+    "public": "frontend/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          },
+          {
+            "key": "X-XSS-Protection",
+            "value": "1; mode=block"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "geolocation=(), microphone=(), camera=()"
+          }
+        ]
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099,
+      "host": "127.0.0.1"
+    },
+    "functions": {
+      "port": 5001
+    },
+    "hosting": {
+      "port": 3000
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    }
+  }
+}
