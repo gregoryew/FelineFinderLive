@@ -3,7 +3,6 @@ import * as admin from 'firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { google } from 'googleapis'
 import { OAuth2Client } from 'google-auth-library'
-import fetch from 'node-fetch'
 
 // Initialize Firebase Admin
 admin.initializeApp()
@@ -59,28 +58,29 @@ const validateOrgIdWithRescueGroups = async (orgId: string) => {
     const config = getEnvironmentConfig()
     const apiKey = config.rescuegroups.api_key
     
-      const response = await fetch(`https://api.rescuegroups.org/v5/public/organizations/${orgId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      if (!response.ok) {
-        return { valid: false, error: `HTTP ${response.status}` }
+    const fetch = (await import('node-fetch')).default
+    const response = await fetch(`https://api.rescuegroups.org/v5/public/organizations/${orgId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
       }
-      
-      const data = await response.json() as any
-      
-      if (data.data && data.data.length > 0) {
-        return { valid: true, orgData: data.data[0] }
-      } else {
-        return { valid: false, error: 'Organization not found' }
-      }
-    } catch (error) {
+    })
+    
+    if (!response.ok) {
+      return { valid: false, error: `HTTP ${response.status}` }
+    }
+    
+    const data = await response.json() as any
+    
+    if (data.data && data.data.length > 0) {
+      return { valid: true, orgData: data.data[0] }
+    } else {
+      return { valid: false, error: 'Organization not found' }
+    }
+  } catch (error) {
     console.error('Error validating OrgID:', error)
     return { valid: false, error: error instanceof Error ? error.message : 'Unknown error' }
-    }
+  }
 }
 
 // Initiate organization setup
