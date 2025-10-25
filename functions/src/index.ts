@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { google } from 'googleapis'
 import { OAuth2Client } from 'google-auth-library'
+import fetch from 'node-fetch'
 
 // Initialize Firebase Admin
 admin.initializeApp()
@@ -58,24 +59,24 @@ const validateOrgIdWithRescueGroups = async (orgId: string) => {
     const config = getEnvironmentConfig()
     const apiKey = config.rescuegroups.api_key
     
-    const response = await fetch(`https://api.rescuegroups.org/v5/public/organizations/${orgId}`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+      const response = await fetch(`https://api.rescuegroups.org/v5/public/organizations/${orgId}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        return { valid: false, error: `HTTP ${response.status}` }
       }
-    })
-    
-    if (!response.ok) {
-      return { valid: false, error: `HTTP ${response.status}` }
-    }
-    
-    const data = await response.json()
-    
-    if (data.data && data.data.length > 0) {
-      return { valid: true, orgData: data.data[0] }
-    } else {
-      return { valid: false, error: 'Organization not found' }
-    }
+      
+      const data = await response.json() as any
+      
+      if (data.data && data.data.length > 0) {
+        return { valid: true, orgData: data.data[0] }
+      } else {
+        return { valid: false, error: 'Organization not found' }
+      }
     } catch (error) {
     console.error('Error validating OrgID:', error)
     return { valid: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -980,6 +981,29 @@ export const getWorkSchedule = functions.https.onCall(async (data, context) => {
   }
 })
 
+// Get RescueGroups API key (public endpoint)
+export const getRescueGroupsApiKeyPublic = functions.https.onRequest(async (req, res) => {
+  return corsHandler(req, res, async () => {
+    if (req.method === 'OPTIONS') {
+      res.status(200).send('')
+      return
+    }
+
+    try {
+      const config = getEnvironmentConfig()
+      
+      res.json({
+        success: true,
+        apiKey: config.rescuegroups.api_key
+      })
+
+    } catch (error) {
+      console.error('Get API key error:', error)
+      res.status(500).json({ error: 'Failed to get API key' })
+    }
+  })
+})
+
 // Search organizations by name
 export const searchOrganizationsByName = functions.https.onRequest(async (req, res) => {
   return corsHandler(req, res, async () => {
@@ -992,6 +1016,7 @@ export const searchOrganizationsByName = functions.https.onRequest(async (req, r
       const { name } = req.query
 
       if (!name || typeof name !== 'string') {
+        console.log('Missing or invalid name parameter:', req.query)
         res.status(400).json({ error: 'Organization name is required' })
         return
       }
