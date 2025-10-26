@@ -121,8 +121,14 @@ export const createBooking = functions.https.onCall(async (data, context) => {
     const bookingData = data.booking as Booking
 
     // Validate required fields
-    if (!bookingData.adopter || !bookingData.cat || !bookingData.startTs || !bookingData.endTs) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required booking fields')
+    if (!bookingData.adopter || !bookingData.adopterEmail || !bookingData.cat || !bookingData.startTs || !bookingData.endTs) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required booking fields (adopter, adopterEmail, cat, startTs, endTs)')
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(bookingData.adopterEmail)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid adopterEmail format')
     }
 
     // Get user's organization
@@ -219,15 +225,14 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
     // Verify user has access to this booking's organization
     const userDoc = await admin.firestore()
       .collection('shelter_people')
-      .where('uid', '==', userId)
-      .limit(1)
+      .doc(userId)
       .get()
 
-    if (userDoc.empty) {
+    if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
     }
 
-    const userData = userDoc.docs[0].data()
+    const userData = userDoc.data()
     
     if (existingBooking.orgId !== userData.orgId) {
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
@@ -305,15 +310,14 @@ export const updateBookingNotes = functions.https.onCall(async (data, context) =
     // Verify user has access to this booking's organization
     const userDoc = await admin.firestore()
       .collection('shelter_people')
-      .where('uid', '==', userId)
-      .limit(1)
+      .doc(userId)
       .get()
 
-    if (userDoc.empty) {
+    if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
     }
 
-    const userData = userDoc.docs[0].data()
+    const userData = userDoc.data()
     
     if (existingBooking.orgId !== userData.orgId) {
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
@@ -377,15 +381,14 @@ export const deleteBooking = functions.https.onCall(async (data, context) => {
     // Verify user has access to this booking's organization
     const userDoc = await admin.firestore()
       .collection('shelter_people')
-      .where('uid', '==', userId)
-      .limit(1)
+      .doc(userId)
       .get()
 
-    if (userDoc.empty) {
+    if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
     }
 
-    const userData = userDoc.docs[0].data()
+    const userData = userDoc.data()
     
     if (existingBooking.orgId !== userData.orgId) {
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
