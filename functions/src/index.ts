@@ -1915,21 +1915,40 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
         const organizationExists = orgDoc.exists
 
         // Determine user role based on organization state
-        // Check if there's already an admin user in the organization
-        const existingAdmins = await admin.firestore()
-          .collection('shelter_people')
-          .where('orgId', '==', orgId)
-          .where('role', '==', 'admin')
-          .where('verified', '==', true)
-          .get()
+        // First, check if this user has a verified invitation
+        const orgDocData = orgDoc.data()
+        const invitedUsers = orgDocData?.invitedUsers || []
+        const userInvitation = invitedUsers.find((inv: any) => inv.email === decodedToken.email && inv.status === 'verified')
         
-        const hasExistingAdmin = !existingAdmins.empty
-        let userRole = hasExistingAdmin ? 'volunteer' : 'admin'
+        let userRole = 'volunteer' // Default role
+        let hasExistingAdmin = false
+        
+        if (userInvitation) {
+          // User has a verified invitation - use the role from the invitation
+          userRole = userInvitation.role || 'volunteer'
+          console.log('User has verified invitation, using role from invitation:', { email: decodedToken.email, role: userRole })
+        } else {
+          // No invitation found - check if there's already an admin user in the organization
+          const existingAdmins = await admin.firestore()
+            .collection('shelter_people')
+            .where('orgId', '==', orgId)
+            .where('role', '==', 'admin')
+            .where('verified', '==', true)
+            .get()
+          
+          hasExistingAdmin = !existingAdmins.empty
+          userRole = hasExistingAdmin ? 'volunteer' : 'admin'
+          console.log('No invitation found, determining role based on existing admins:', { hasExistingAdmin, userRole })
+        }
         
         if (!organizationExists) {
-          // First user of this organization - they become admin
-          userRole = 'admin'
-          console.log('New organization - first user becomes admin:', orgId)
+          // First user of this organization - they become admin (unless they have a verified invitation with a different role)
+          if (!userInvitation) {
+            userRole = 'admin'
+            console.log('New organization - first user becomes admin:', orgId)
+          } else {
+            console.log('New organization but user has verified invitation with role:', userRole)
+          }
           
           // Create organization document
           const orgData: any = {
