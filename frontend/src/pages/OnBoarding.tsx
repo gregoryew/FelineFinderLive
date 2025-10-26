@@ -771,10 +771,12 @@ const OnBoarding: React.FC = () => {
     }
   }
 
-  // Filter users based on search term
-  const filteredUsers = onboardingData.users?.filter(user => 
-    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter users based on search term and exclude current user
+  const filteredUsers = onboardingData.users?.filter(teamMember => 
+    // Filter out the current user - they shouldn't see themselves in the team members list
+    teamMember.id !== user?.uid &&
+    (teamMember.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    teamMember.email?.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || []
 
   // Require authentication to access onboarding
