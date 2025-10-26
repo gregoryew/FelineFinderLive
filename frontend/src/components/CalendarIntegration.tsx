@@ -445,11 +445,6 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onCalendarCon
                 {isConnecting ? 'Connecting...' : 'Grant Access to Calendars'}
               </button>
             </div>
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                💡 If you just connected and don't see it reflected here, please <strong>refresh the page</strong>.
-              </p>
-            </div>
           </div>
         )}
 
