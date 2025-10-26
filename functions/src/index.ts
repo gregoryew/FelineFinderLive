@@ -5,7 +5,6 @@ import { google } from 'googleapis'
 import * as cors from 'cors'
 import { v4 as uuidv4 } from 'uuid'
 import * as dotenv from 'dotenv'
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
 import * as postmark from 'postmark'
 import * as crypto from 'crypto'
 import * as https from 'https'
@@ -377,39 +376,26 @@ export const sendOrganizationInvite = functions.https.onCall(async (data: any, c
       : 'https://feline-finder-org-portal.web.app'
     const invitationUrl = `${frontendUrl}/invite?token=${invitationToken}`
 
-    // Send invitation email using AWS SES
-    const sesClient = new SESClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-      }
-    })
+    // Send invitation email using Postmark
+    const postmarkApiKey = process.env.POSTMARK_API_KEY
+    if (!postmarkApiKey) {
+      throw new functions.https.HttpsError('failed-precondition', 'Email service not configured')
+    }
 
-    const emailParams = {
-      Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@felinefinder.org',
-      Destination: {
-        ToAddresses: [inviteeEmail]
-      },
-      Message: {
-        Subject: { Data: `Invitation to join ${organizationName} - Feline Finder`, Charset: 'UTF-8' },
-        Body: {
-          Html: {
-            Data: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">You're invited to join ${organizationName}</h2>
-                <p>${inviterName || userData.displayName} has invited you to join ${organizationName} on Feline Finder.</p>
-                <p>Click the button below to accept your invitation:</p>
-                <a href="${invitationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Accept Invitation</a>
-                <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
-                  This invitation will expire in 7 days.
-                </p>
-              </div>
-            `,
-            Charset: 'UTF-8'
-          },
-          Text: {
-            Data: `
+    const subject = `Invitation to join ${organizationName} - Feline Finder`
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">You're invited to join ${organizationName}</h2>
+        <p>${inviterName || userData.displayName} has invited you to join ${organizationName} on Feline Finder.</p>
+        <p>Click the button below to accept your invitation:</p>
+        <a href="${invitationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Accept Invitation</a>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+          This invitation will expire in 7 days.
+        </p>
+      </div>
+    `
+    
+    const textBody = `
 You're invited to join ${organizationName}
 
 ${inviterName || userData.displayName} has invited you to join ${organizationName} on Feline Finder.
@@ -417,15 +403,47 @@ ${inviterName || userData.displayName} has invited you to join ${organizationNam
 Accept your invitation: ${invitationUrl}
 
 This invitation will expire in 7 days.
-            `,
-            Charset: 'UTF-8'
-          }
-        }
+    `
+
+    const postData = JSON.stringify({
+      From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
+      To: inviteeEmail,
+      Subject: subject,
+      HtmlBody: htmlBody,
+      TextBody: textBody,
+      MessageStream: 'outbound'
+    })
+
+    const options = {
+      hostname: 'api.postmarkapp.com',
+      port: 443,
+      path: '/email',
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+        'X-Postmark-Server-Token': postmarkApiKey
       }
     }
 
-    const command = new SendEmailCommand(emailParams)
-    await sesClient.send(command)
+    await new Promise<void>((resolve, reject) => {
+      const req = https.request(options, (res: any) => {
+        let data = ''
+        res.on('data', (chunk: any) => { data += chunk })
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            console.log('Invitation email sent via Postmark to:', inviteeEmail)
+            resolve()
+          } else {
+            reject(new Error(`Postmark API error: ${res.statusCode}`))
+          }
+        })
+      })
+      req.on('error', reject)
+      req.write(postData)
+      req.end()
+    })
 
     // Log successful invitation
     await logSecurityEvent('invitation_sent', userId, {
@@ -1928,42 +1946,26 @@ async function sendOrgVerificationEmailInternal(orgId: string, userId: string, v
       : 'https://feline-finder-org-portal.web.app'
     const verificationUrl = `${frontendUrl}/verify-organization?uuid=${verificationUuid}&orgId=${orgId}`
 
-    // Send verification email using AWS SES
-    const sesClient = new SESClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-      }
-    })
+    // Send verification email using Postmark
+    const postmarkApiKey = process.env.POSTMARK_API_KEY
+    if (!postmarkApiKey) {
+      throw new Error('Email service not configured')
+    }
 
-    const emailParams = {
-      Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@felinefinder.org',
-      Destination: {
-        ToAddresses: [orgEmail] // Send to RescueGroups org email
-      },
-      Message: {
-        Subject: {
-          Data: 'Verify Your Organization - Feline Finder',
-          Charset: 'UTF-8'
-        },
-        Body: {
-          Html: {
-            Data: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">Organization Verification Required</h2>
-                <p>Someone has requested to register your organization "${orgData?.rescueGroupsName || 'Unknown'}" with Feline Finder.</p>
-                <p>To verify this request and grant admin access, please click the button below:</p>
-                <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
-                <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
-                  If you did not request this verification, please ignore this email.
-                </p>
-              </div>
-            `,
-            Charset: 'UTF-8'
-          },
-          Text: {
-            Data: `
+    const subject = 'Verify Your Organization - Feline Finder'
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Organization Verification Required</h2>
+        <p>Someone has requested to register your organization "${orgData?.rescueGroupsName || 'Unknown'}" with Feline Finder.</p>
+        <p>To verify this request and grant admin access, please click the button below:</p>
+        <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+          If you did not request this verification, please ignore this email.
+        </p>
+      </div>
+    `
+    
+    const textBody = `
 Organization Verification Required
 
 Someone has requested to register your organization "${orgData?.rescueGroupsName || 'Unknown'}" with Feline Finder.
@@ -1972,17 +1974,47 @@ To verify this request and grant admin access, please visit:
 ${verificationUrl}
 
 If you did not request this verification, please ignore this email.
-            `,
-            Charset: 'UTF-8'
-          }
-        }
+    `
+
+    const postData = JSON.stringify({
+      From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
+      To: orgEmail,
+      Subject: subject,
+      HtmlBody: htmlBody,
+      TextBody: textBody,
+      MessageStream: 'outbound'
+    })
+
+    const options = {
+      hostname: 'api.postmarkapp.com',
+      port: 443,
+      path: '/email',
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+        'X-Postmark-Server-Token': postmarkApiKey
       }
     }
 
-    const command = new SendEmailCommand(emailParams)
-    await sesClient.send(command)
-    
-    console.log('Organization verification email sent successfully to:', orgEmail)
+    await new Promise<void>((resolve, reject) => {
+      const req = https.request(options, (res: any) => {
+        let data = ''
+        res.on('data', (chunk: any) => { data += chunk })
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            console.log('Organization verification email sent via Postmark to:', orgEmail)
+            resolve()
+          } else {
+            reject(new Error(`Postmark API error: ${res.statusCode}`))
+          }
+        })
+      })
+      req.on('error', reject)
+      req.write(postData)
+      req.end()
+    })
   } catch (error) {
     console.error('Failed to send organization verification email:', error)
     throw error
@@ -2044,17 +2076,15 @@ export const sendOrganizationVerificationEmail = functions.https.onRequest(async
         : 'https://feline-finder-org-portal.web.app'
       const verificationUrl = `${frontendUrl}/verify-organization?uuid=${verificationUuid}&orgId=${orgId}`
 
-      // Send verification email using AWS SES
-      const sesClient = new SESClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-        }
-      })
+      // Get Postmark API key
+      const postmarkApiKey = process.env.POSTMARK_API_KEY
+      if (!postmarkApiKey) {
+        console.error('POSTMARK_API_KEY not configured')
+        res.status(500).json({ error: 'Email service not configured' })
+        return
+      }
 
-      // Get organization email from RescueGroups data (CRITICAL FIX)
-      // First try to get it from the organization document, then from RescueGroups validation
+      // Get organization email from RescueGroups data
       let orgEmail = orgData?.rescueGroupsEmail
       if (!orgEmail) {
         // If not stored in org document, we need to get it from RescueGroups
@@ -2067,39 +2097,27 @@ export const sendOrganizationVerificationEmail = functions.https.onRequest(async
         return
       }
 
-      const emailParams = {
-        Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@felinefinder.org',
-        Destination: {
-          ToAddresses: [orgEmail] // Send to RescueGroups org email, not user email
-        },
-        Message: {
-          Subject: {
-            Data: 'Verify Your Organization - Feline Finder',
-            Charset: 'UTF-8'
-          },
-          Body: {
-            Html: {
-              Data: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">Organization Verification Required</h2>
-                  <p>Hello,</p>
-                  <p>Someone has claimed to be the administrator for <strong>${orgData?.rescueGroupsName || 'your organization'}</strong> and requested access to the Feline Finder Organization Portal.</p>
-                  <p>If you are the legitimate administrator and wish to verify this organization, please click the verification link below:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
-            </div>
-            <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
-                  <p><strong>Important:</strong> This link will expire in 24 hours for security reasons.</p>
-                  <p>If you did not request this verification or are not the administrator, please ignore this email.</p>
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-            <p style="color: #666; font-size: 12px;">This email was sent by Feline Finder Organization Portal</p>
+      // Prepare email content
+      const subject = 'Verify Your Organization - Feline Finder'
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Organization Verification Required</h2>
+          <p>Hello,</p>
+          <p>Someone has claimed to be the administrator for <strong>${orgData?.rescueGroupsName || 'your organization'}</strong> and requested access to the Feline Finder Organization Portal.</p>
+          <p>If you are the legitimate administrator and wish to verify this organization, please click the verification link below:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
           </div>
-              `,
-              Charset: 'UTF-8'
-            },
-            Text: {
-              Data: `
+          <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
+          <p><strong>Important:</strong> This link will expire in 24 hours for security reasons.</p>
+          <p>If you did not request this verification or are not the administrator, please ignore this email.</p>
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">This email was sent by Feline Finder Organization Portal</p>
+        </div>
+      `
+      
+      const textBody = `
 Organization Verification Required
 
 Someone has claimed to be the administrator for ${orgData?.rescueGroupsName || 'your organization'} and requested access to the Feline Finder Organization Portal.
@@ -2112,34 +2130,60 @@ This link will expire in 24 hours for security reasons.
 If you did not request this verification or are not the administrator, please ignore this email.
 
 This email was sent by Feline Finder Organization Portal
-              `,
-              Charset: 'UTF-8'
-            }
-          }
+      `
+
+      // Send email via Postmark
+      const postData = JSON.stringify({
+        From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
+        To: orgEmail,
+        Subject: subject,
+        HtmlBody: htmlBody,
+        TextBody: textBody,
+        MessageStream: 'outbound'
+      })
+
+      const options = {
+        hostname: 'api.postmarkapp.com',
+        port: 443,
+        path: '/email',
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          'X-Postmark-Server-Token': postmarkApiKey
         }
       }
 
-      try {
-        const command = new SendEmailCommand(emailParams)
-        await sesClient.send(command)
-        
-        console.log('Verification email sent via AWS SES:', { 
-          userId, 
-          orgId, 
-          verificationUuid, 
-          orgEmail,
-          fromEmail: process.env.AWS_SES_FROM_EMAIL 
+      await new Promise<void>((resolve, reject) => {
+        const req = https.request(options, (res: any) => {
+          let data = ''
+          res.on('data', (chunk: any) => { data += chunk })
+          res.on('end', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              console.log('Verification email sent via Postmark:', { 
+                userId, 
+                orgId, 
+                verificationUuid, 
+                orgEmail
+              })
+              resolve()
+            } else {
+              console.error('Postmark API error:', res.statusCode, data)
+              reject(new Error(`Postmark API error: ${res.statusCode}`))
+            }
+          })
         })
+        req.on('error', reject)
+        req.write(postData)
+        req.end()
+      })
 
       res.json({
         success: true,
         message: 'Verification email sent successfully',
         verificationUuid: verificationUuid
       })
-      } catch (emailError) {
-        console.error('AWS SES email error:', emailError)
-        res.status(500).json({ error: 'Failed to send verification email' })
-      }
 
     } catch (error) {
       console.error('Send verification email error:', error)
