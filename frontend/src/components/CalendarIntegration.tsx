@@ -357,52 +357,56 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onCalendarCon
                 </div>
               ) : (
                 <>
-                  <select
-                    id="calendar-select"
-                    value={selectedCalendarId}
-                    onChange={async (e) => {
-                      const newCalendarId = e.target.value
-                      
-                      // Special case: "Make a New Calendar"
-                      if (newCalendarId === 'make_new_calendar') {
-                        // Open Google Calendar settings to create a new calendar
-                        window.open('https://calendar.google.com/calendar/u/0/r/settings/createcalendar', '_blank')
-                        // Reset selection to current value
-                        setSelectedCalendarId(selectedCalendarId)
-                        return
-                      }
-                      
-                      setSelectedCalendarId(newCalendarId)
-                      
-                      // Save the selected calendar
-                      if (newCalendarId) {
-                        try {
-                          const functions = getFunctions()
-                          const saveCalendar = httpsCallable(functions, 'saveSelectedCalendar')
-                          // Find the calendar name for the selected ID
-                          const selectedCalendar = calendars.find(cal => cal.id === newCalendarId)
-                          const calendarName = selectedCalendar?.summary || 'Unknown Calendar'
-                          await saveCalendar({ 
-                            calendarId: newCalendarId,
-                            calendarName: calendarName
-                          })
-                          console.log('Calendar selection saved:', newCalendarId, calendarName)
-                        } catch (error) {
-                          console.error('Error saving calendar selection:', error)
-                          setError('Failed to save calendar selection. Please try again.')
+                  <div className="flex gap-2">
+                    <select
+                      id="calendar-select"
+                      value={selectedCalendarId}
+                      onChange={async (e) => {
+                        const newCalendarId = e.target.value
+                        
+                        setSelectedCalendarId(newCalendarId)
+                        
+                        // Save the selected calendar
+                        if (newCalendarId) {
+                          try {
+                            const functions = getFunctions()
+                            const saveCalendar = httpsCallable(functions, 'saveSelectedCalendar')
+                            // Find the calendar name for the selected ID
+                            const selectedCalendar = calendars.find(cal => cal.id === newCalendarId)
+                            const calendarName = selectedCalendar?.summary || 'Unknown Calendar'
+                            await saveCalendar({ 
+                              calendarId: newCalendarId,
+                              calendarName: calendarName
+                            })
+                            console.log('Calendar selection saved:', newCalendarId, calendarName)
+                          } catch (error) {
+                            console.error('Error saving calendar selection:', error)
+                            setError('Failed to save calendar selection. Please try again.')
+                          }
                         }
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">-- Select a calendar --</option>
-                    {calendars.map((calendar) => (
-                      <option key={calendar.id} value={calendar.id}>
-                        {calendar.summary} {calendar.primary ? '(Primary)' : ''}
-                      </option>
-                    ))}
-                    <option value="make_new_calendar" className="text-blue-600 italic">➕ Make a New Calendar</option>
-                  </select>
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">-- Select a calendar --</option>
+                      {calendars.map((calendar) => (
+                        <option key={calendar.id} value={calendar.id}>
+                          {calendar.summary} {calendar.primary ? '(Primary)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={async () => {
+                        setLoadingCalendars(true)
+                        await fetchCalendars()
+                        setLoadingCalendars(false)
+                      }}
+                      type="button"
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      title="Refresh calendar list"
+                    >
+                      🔄
+                    </button>
+                  </div>
                   {selectedCalendarId && (
                     <p className="text-xs text-green-600 mt-1">✓ Calendar selected and saved</p>
                   )}

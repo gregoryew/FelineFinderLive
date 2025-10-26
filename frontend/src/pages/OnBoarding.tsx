@@ -1092,23 +1092,10 @@ const OnBoarding: React.FC = () => {
                       </div>
                       
                       <div className="mb-6">
-                        <div className="flex justify-between items-center mb-2">
+                        <div className="mb-2">
                           <span className="text-sm text-gray-600">
                             Calendar Status: {onboardingData.calendarConnected ? '✅ Connected' : '❌ Not Connected'}
                           </span>
-                          <button
-                            onClick={() => {
-                              try {
-                                checkCalendarStatus()
-                              } catch (error) {
-                                console.error('Error checking calendar status:', error)
-                                setError('Failed to check calendar status. Please try again.')
-                              }
-                            }}
-                            className="text-sm text-blue-600 hover:text-blue-800 underline"
-                          >
-                            Refresh Status
-                          </button>
                         </div>
                         <div className="border border-gray-200 rounded-lg p-4">
                           {(() => {
