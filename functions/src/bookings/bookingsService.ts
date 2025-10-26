@@ -8,6 +8,7 @@ export interface Booking {
   calendarId: number
   adopter: string
   adopterId: number
+  adopterEmail: string
   cat: string
   catId: number
   startTs: admin.firestore.Timestamp
@@ -17,8 +18,7 @@ export interface Booking {
   volunteer: string
   volunteerId?: string
   groupId: number
-  shelterId: number
-  adopterEmail: string
+  shelterId: string
   status: 'pending-shelter-setup' | 'pending-confirmation' | 'confirmed' | 'volunteer-assigned' | 'in-progress' | 'completed' | 'adopted' | 'cancelled'
   notes?: string
   reminders?: Array<{
@@ -51,7 +51,7 @@ export interface Booking {
   createdAt?: admin.firestore.Timestamp
   updatedAt?: admin.firestore.Timestamp
   createdBy?: string
-  orgId?: string
+  orgId: string
 }
 
 /**
