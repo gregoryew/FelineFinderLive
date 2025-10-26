@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../services/auth'
 import { Navigate } from 'react-router-dom'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import { 
   RotateCcw, 
   RefreshCw, 
@@ -133,12 +134,61 @@ const Bookings: React.FC = () => {
   const [isVolunteerModalOpen, setIsVolunteerModalOpen] = useState(false)
   const [selectedVolunteerBookingId, setSelectedVolunteerBookingId] = useState<string | null>(null)
   const [availableVolunteers, setAvailableVolunteers] = useState<any[]>([])
+  const [selectedVolunteerId, setSelectedVolunteerId] = useState<string>('')
   
   // Reschedule modal
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false)
   const [selectedRescheduleBookingId, setSelectedRescheduleBookingId] = useState<string | null>(null)
   const [newStartDate, setNewStartDate] = useState('')
   const [newEndDate, setNewEndDate] = useState('')
+  
+  // Load volunteers from organization
+  const loadVolunteers = async () => {
+    try {
+      const functions = getFunctions()
+      const getOnboardingProgress = httpsCallable(functions, 'getOnboardingProgress')
+      const result = await getOnboardingProgress({})
+      const data = result.data as any
+      
+      if (data?.onboardingData?.users) {
+        const volunteers = data.onboardingData.users.filter((u: any) => u.role === 'volunteer' || u.role === 'admin')
+        setAvailableVolunteers(volunteers)
+      }
+    } catch (error) {
+      console.error('Error loading volunteers:', error)
+    }
+  }
+  
+  // Open volunteer modal and load volunteers
+  const openVolunteerModal = (bookingId: string) => {
+    setSelectedVolunteerBookingId(bookingId)
+    loadVolunteers()
+    setIsVolunteerModalOpen(true)
+  }
+  
+  // Load booking data for reschedule modal
+  const openRescheduleModal = (bookingId: string) => {
+    const booking = bookings.find(b => b.id === bookingId)
+    if (booking) {
+      const startDate = timestampToDate(booking.startTs)
+      const endDate = timestampToDate(booking.endTs)
+      
+      // Format as datetime-local string (YYYY-MM-DDTHH:MM)
+      const formatDateLocal = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const hours = String(date.getHours()).padStart(2, '0')
+        const minutes = String(date.getMinutes()).padStart(2, '0')
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+      }
+      
+      setNewStartDate(formatDateLocal(startDate))
+      setNewEndDate(formatDateLocal(endDate))
+      setSelectedRescheduleBookingId(bookingId)
+      setIsRescheduleModalOpen(true)
+    }
+  }
 
   // Load saved layouts from localStorage on component mount
   useEffect(() => {
@@ -685,7 +735,6 @@ const Bookings: React.FC = () => {
   // Handle action button clicks
   const handleActionClick = async (booking: Booking, action: string) => {
     try {
-      const { getFunctions, httpsCallable } = await import('firebase/functions')
       const functions = getFunctions()
       
       let newStatus: Booking['status'] | null = null
@@ -713,8 +762,7 @@ const Bookings: React.FC = () => {
           
         case 'reschedule':
           // Open reschedule modal
-          setSelectedRescheduleBookingId(booking.id)
-          setIsRescheduleModalOpen(true)
+          openRescheduleModal(booking.id!)
           break
           
         case 'confirm-setup':
@@ -735,9 +783,8 @@ const Bookings: React.FC = () => {
           
         case 'assign-volunteer':
         case 'reassign-volunteer':
-          // TODO: Load available volunteers from organization
-          setSelectedVolunteerBookingId(booking.id)
-          setIsVolunteerModalOpen(true)
+          // Open volunteer modal
+          openVolunteerModal(booking.id!)
           break
           
         case 'start-visit':
@@ -1427,13 +1474,16 @@ const Bookings: React.FC = () => {
                   Select a Volunteer
                 </label>
                 <select
+                  value={selectedVolunteerId}
+                  onChange={(e) => setSelectedVolunteerId(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
-                  defaultValue=""
                 >
                   <option value="">-- Select Volunteer --</option>
-                  {/* TODO: Load volunteers from organization */}
-                  <option value="volunteer1">John Doe</option>
-                  <option value="volunteer2">Jane Smith</option>
+                  {availableVolunteers.map((volunteer) => (
+                    <option key={volunteer.id} value={volunteer.id}>
+                      {volunteer.name} ({volunteer.role})
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex justify-end space-x-3">
@@ -1441,6 +1491,7 @@ const Bookings: React.FC = () => {
                   onClick={() => {
                     setIsVolunteerModalOpen(false)
                     setSelectedVolunteerBookingId(null)
+                    setSelectedVolunteerId('')
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
                 >
@@ -1448,16 +1499,35 @@ const Bookings: React.FC = () => {
                 </button>
                 <button
                   onClick={async () => {
-                    // TODO: Implement volunteer assignment
-                    const { getFunctions, httpsCallable } = await import('firebase/functions')
-                    const functions = getFunctions()
-                    const assignVolunteer = httpsCallable(functions, 'assignVolunteerToBooking')
-                    // await assignVolunteer({ bookingId: selectedVolunteerBookingId, ... })
-                    console.log('Assign volunteer to', selectedVolunteerBookingId)
-                    setIsVolunteerModalOpen(false)
-                    setSelectedVolunteerBookingId(null)
+                    if (!selectedVolunteerId || !selectedVolunteerBookingId) return
+                    
+                    try {
+                      const functions = getFunctions()
+                      const assignVolunteer = httpsCallable(functions, 'assignVolunteerToBooking')
+                      const selectedVolunteer = availableVolunteers.find(v => v.id === selectedVolunteerId)
+                      
+                      await assignVolunteer({
+                        bookingId: selectedVolunteerBookingId,
+                        volunteerId: selectedVolunteer?.id,
+                        volunteerName: selectedVolunteer?.name,
+                        volunteerEmail: selectedVolunteer?.email
+                      })
+                      
+                      console.log('Assigned volunteer', selectedVolunteer?.name, 'to booking', selectedVolunteerBookingId)
+                      
+                      // Refresh bookings
+                      loadBookings()
+                      
+                      setIsVolunteerModalOpen(false)
+                      setSelectedVolunteerBookingId(null)
+                      setSelectedVolunteerId('')
+                    } catch (error) {
+                      console.error('Error assigning volunteer:', error)
+                      setError('Failed to assign volunteer')
+                    }
                   }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-feline-600 rounded-md hover:bg-feline-700"
+                  disabled={!selectedVolunteerId}
+                  className="px-4 py-2 text-sm font-medium text-white bg-feline-600 rounded-md hover:bg-feline-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Assign
                 </button>
@@ -1509,20 +1579,27 @@ const Bookings: React.FC = () => {
                 </button>
                 <button
                   onClick={async () => {
-                    const { getFunctions, httpsCallable } = await import('firebase/functions')
-                    const functions = getFunctions()
-                    const reschedule = httpsCallable(functions, 'rescheduleBooking')
-                    await reschedule({
-                      bookingId: selectedRescheduleBookingId,
-                      newStartTs: newStartDate,
-                      newEndTs: newEndDate
-                    })
-                    console.log('Rescheduled to', newStartDate, '-', newEndDate)
-                    setIsRescheduleModalOpen(false)
-                    setSelectedRescheduleBookingId(null)
-                    setNewStartDate('')
-                    setNewEndDate('')
-                    loadBookings() // Refresh bookings
+                    try {
+                      const functions = getFunctions()
+                      const reschedule = httpsCallable(functions, 'rescheduleBooking')
+                      await reschedule({
+                        bookingId: selectedRescheduleBookingId,
+                        newStartTs: newStartDate,
+                        newEndTs: newEndDate
+                      })
+                      console.log('Rescheduled to', newStartDate, '-', newEndDate)
+                      
+                      // Refresh bookings
+                      loadBookings()
+                      
+                      setIsRescheduleModalOpen(false)
+                      setSelectedRescheduleBookingId(null)
+                      setNewStartDate('')
+                      setNewEndDate('')
+                    } catch (error) {
+                      console.error('Error rescheduling:', error)
+                      setError('Failed to reschedule booking')
+                    }
                   }}
                   disabled={!newStartDate || !newEndDate}
                   className="px-4 py-2 text-sm font-medium text-white bg-feline-600 rounded-md hover:bg-feline-700 disabled:opacity-50 disabled:cursor-not-allowed"
