@@ -349,6 +349,16 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onCalendarCon
                     value={selectedCalendarId}
                     onChange={async (e) => {
                       const newCalendarId = e.target.value
+                      
+                      // Special case: "Make a New Calendar"
+                      if (newCalendarId === 'make_new_calendar') {
+                        // Open Google Calendar in a new tab
+                        window.open('https://calendar.google.com/calendar/u/0/r', '_blank')
+                        // Reset selection to current value
+                        setSelectedCalendarId(selectedCalendarId)
+                        return
+                      }
+                      
                       setSelectedCalendarId(newCalendarId)
                       
                       // Save the selected calendar
@@ -378,6 +388,7 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onCalendarCon
                         {calendar.summary} {calendar.primary ? '(Primary)' : ''}
                       </option>
                     ))}
+                    <option value="make_new_calendar" className="text-blue-600 italic">➕ Make a New Calendar</option>
                   </select>
                   {selectedCalendarId && (
                     <p className="text-xs text-green-600 mt-1">✓ Calendar selected and saved</p>
