@@ -130,19 +130,19 @@ const Bookings: React.FC = () => {
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false)
   const [layoutNameInput, setLayoutNameInput] = useState('')
   
-  // Volunteer assignment modal
-  const [isVolunteerModalOpen, setIsVolunteerModalOpen] = useState(false)
-  const [selectedVolunteerBookingId, setSelectedVolunteerBookingId] = useState<string | null>(null)
+  // Combined volunteer/reschedule modal
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [selectedModalBookingId, setSelectedModalBookingId] = useState<string | null>(null)
   const [availableVolunteers, setAvailableVolunteers] = useState<any[]>([])
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<string>('')
-  
-  // Reschedule modal
-  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false)
-  const [selectedRescheduleBookingId, setSelectedRescheduleBookingId] = useState<string | null>(null)
   const [newStartDate, setNewStartDate] = useState('')
-  const [newEndDate, setNewEndDate] = useState('')
+  const [duration, setDuration] = useState<number | 'custom'>('custom')
+  const [customDuration, setCustomDuration] = useState<number>(30)
+  const [customDurationError, setCustomDurationError] = useState<string | null>(null)
+  const [meetingType, setMeetingType] = useState<'in-person' | 'video'>('in-person')
+  const [meetingPreferences, setMeetingPreferences] = useState<{inPerson?: boolean, videoChat?: boolean} | null>(null)
   
-  // Load volunteers from organization
+  // Load volunteers and meeting preferences from organization
   const loadVolunteers = async () => {
     try {
       const functions = getFunctions()
@@ -154,26 +154,40 @@ const Bookings: React.FC = () => {
         const volunteers = data.onboardingData.users.filter((u: any) => u.role === 'volunteer' || u.role === 'admin')
         setAvailableVolunteers(volunteers)
       }
+      
+      // Load meeting preferences
+      if (data?.onboardingData?.meetingPreferences) {
+        setMeetingPreferences({
+          inPerson: data.onboardingData.meetingPreferences.inPerson || false,
+          videoChat: data.onboardingData.meetingPreferences.videoChat || false
+        })
+        
+        // Set default meeting type and duration
+        if (data.onboardingData.meetingPreferences.inPerson && data.onboardingData.meetingPreferences.videoChat) {
+          // Both enabled - default to in-person, let user choose
+        } else if (data.onboardingData.meetingPreferences.videoChat) {
+          setMeetingType('video')
+          setDuration(data.onboardingData.meetingPreferences.videoChatDuration || 30)
+          setCustomDuration(data.onboardingData.meetingPreferences.videoChatCustomDuration || 30)
+        } else if (data.onboardingData.meetingPreferences.inPerson) {
+          setMeetingType('in-person')
+          setDuration(data.onboardingData.meetingPreferences.inPersonDuration || 30)
+          setCustomDuration(data.onboardingData.meetingPreferences.inPersonCustomDuration || 30)
+        }
+      }
     } catch (error) {
       console.error('Error loading volunteers:', error)
     }
   }
   
-  // Open volunteer modal and load volunteers
-  const openVolunteerModal = (bookingId: string) => {
-    setSelectedVolunteerBookingId(bookingId)
-    loadVolunteers()
-    setIsVolunteerModalOpen(true)
-  }
-  
-  // Load booking data for reschedule modal
-  const openRescheduleModal = (bookingId: string) => {
+  // Open combined modal
+  const openBookingModal = async (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId)
     if (booking) {
-      const startDate = timestampToDate(booking.startTs)
-      const endDate = timestampToDate(booking.endTs)
+      setSelectedModalBookingId(bookingId)
       
-      // Format as datetime-local string (YYYY-MM-DDTHH:MM)
+      // Format start date
+      const startDate = timestampToDate(booking.startTs)
       const formatDateLocal = (date: Date) => {
         const year = date.getFullYear()
         const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -184,12 +198,66 @@ const Bookings: React.FC = () => {
       }
       
       setNewStartDate(formatDateLocal(startDate))
-      setNewEndDate(formatDateLocal(endDate))
-      setSelectedRescheduleBookingId(bookingId)
-      setIsRescheduleModalOpen(true)
+      
+      // Calculate current duration from booking
+      const endDate = timestampToDate(booking.endTs)
+      const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60))
+      
+      // Check if duration matches preset values, otherwise use custom
+      if ([15, 30, 45, 60].includes(durationMinutes)) {
+        setDuration(durationMinutes)
+      } else {
+        setDuration('custom')
+        setCustomDuration(durationMinutes)
+      }
+      
+      setIsBookingModalOpen(true)
+      await loadVolunteers()
+      
+      // Set volunteer if already assigned (find by name)
+      if (booking.volunteer) {
+        const volunteer = availableVolunteers.find(v => v.name === booking.volunteer)
+        if (volunteer) {
+          setSelectedVolunteerId(volunteer.id)
+        }
+      }
     }
   }
 
+  // Calculate end time from start date and duration
+  const calculateEndTime = (startDate: string, durationValue: number | 'custom'): string => {
+    if (!startDate) return ''
+    
+    const start = new Date(startDate)
+    const durationMinutes = durationValue === 'custom' ? customDuration : durationValue
+    
+    const end = new Date(start.getTime() + durationMinutes * 60000)
+    
+    const formatDateLocal = (date: Date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      return `${year}-${month}-${day}T${hours}:${minutes}`
+    }
+    
+    return formatDateLocal(end)
+  }
+  
+  const endTime = calculateEndTime(newStartDate, duration)
+  
+  // Validate custom duration on blur
+  const handleCustomDurationBlur = () => {
+    if (duration === 'custom') {
+      if (customDuration < 1) {
+        setCustomDurationError('Duration must be at least 1 minute')
+      } else {
+        setCustomDurationError(null)
+      }
+    }
+  }
+  
   // Load saved layouts from localStorage on component mount
   useEffect(() => {
     const saved = localStorage.getItem('bookings-layouts')
@@ -761,8 +829,8 @@ const Bookings: React.FC = () => {
           break
           
         case 'reschedule':
-          // Open reschedule modal
-          openRescheduleModal(booking.id!)
+          // Open combined modal
+          openBookingModal(booking.id!)
           break
           
         case 'confirm-setup':
@@ -783,8 +851,8 @@ const Bookings: React.FC = () => {
           
         case 'assign-volunteer':
         case 'reassign-volunteer':
-          // Open volunteer modal
-          openVolunteerModal(booking.id!)
+          // Open combined modal
+          openBookingModal(booking.id!)
           break
           
         case 'start-visit':
@@ -1463,15 +1531,105 @@ const Bookings: React.FC = () => {
           </div>
         </div>
       )}
-      {/* Volunteer Assignment Modal */}
-      {isVolunteerModalOpen && (
+      {/* Combined Booking Modal */}
+      {isBookingModalOpen && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Assign Volunteer</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Schedule Appointment</h3>
+              
+              {/* Meeting Type - only show if both preferences are enabled */}
+              {meetingPreferences?.inPerson && meetingPreferences?.videoChat && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Meeting Type
+                  </label>
+                  <select
+                    value={meetingType}
+                    onChange={(e) => setMeetingType(e.target.value as 'in-person' | 'video')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
+                  >
+                    <option value="in-person">In-Person</option>
+                    <option value="video">Video Chat</option>
+                  </select>
+                </div>
+              )}
+              
+              {/* Start Date */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select a Volunteer
+                  Start Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newStartDate}
+                  onChange={(e) => setNewStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
+                />
+              </div>
+              
+              {/* Duration */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Duration (minutes)
+                </label>
+                <select
+                  value={duration}
+                  onChange={(e) => {
+                    const value = e.target.value === 'custom' ? 'custom' : parseInt(e.target.value)
+                    setDuration(value)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
+                >
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="45">45</option>
+                  <option value="60">60</option>
+                  <option value="custom">Custom</option>
+                </select>
+                
+                {duration === 'custom' && (
+                  <div className="mt-2">
+                    <input
+                      type="number"
+                      value={customDuration}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value)
+                        if (!isNaN(value)) {
+                          setCustomDuration(value)
+                          setCustomDurationError(null)
+                        }
+                      }}
+                      onBlur={handleCustomDurationBlur}
+                      min="1"
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500 ${
+                        customDurationError ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    {customDurationError && (
+                      <p className="text-sm text-red-500 mt-1">{customDurationError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              {/* End Time - read-only */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={endTime}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+                />
+              </div>
+              
+              {/* Volunteer */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Volunteer
                 </label>
                 <select
                   value={selectedVolunteerId}
@@ -1486,12 +1644,17 @@ const Bookings: React.FC = () => {
                   ))}
                 </select>
               </div>
+              
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => {
-                    setIsVolunteerModalOpen(false)
-                    setSelectedVolunteerBookingId(null)
+                    setIsBookingModalOpen(false)
+                    setSelectedModalBookingId(null)
                     setSelectedVolunteerId('')
+                    setNewStartDate('')
+                    setDuration(30)
+                    setCustomDuration(30)
+                    setCustomDurationError(null)
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
                 >
@@ -1499,112 +1662,67 @@ const Bookings: React.FC = () => {
                 </button>
                 <button
                   onClick={async () => {
-                    if (!selectedVolunteerId || !selectedVolunteerBookingId) return
+                    if (!newStartDate || customDurationError) return
                     
                     try {
                       const functions = getFunctions()
-                      const assignVolunteer = httpsCallable(functions, 'assignVolunteerToBooking')
-                      const selectedVolunteer = availableVolunteers.find(v => v.id === selectedVolunteerId)
                       
-                      await assignVolunteer({
-                        bookingId: selectedVolunteerBookingId,
-                        volunteerId: selectedVolunteer?.id,
-                        volunteerName: selectedVolunteer?.name,
-                        volunteerEmail: selectedVolunteer?.email
-                      })
+                      // Calculate end time
+                      const start = new Date(newStartDate)
+                      const durationMinutes = duration === 'custom' ? customDuration : duration
+                      const end = new Date(start.getTime() + durationMinutes * 60000)
                       
-                      console.log('Assigned volunteer', selectedVolunteer?.name, 'to booking', selectedVolunteerBookingId)
+                      // Format as datetime-local string
+                      const formatDateLocal = (date: Date) => {
+                        const year = date.getFullYear()
+                        const month = String(date.getMonth() + 1).padStart(2, '0')
+                        const day = String(date.getDate()).padStart(2, '0')
+                        const hours = String(date.getHours()).padStart(2, '0')
+                        const minutes = String(date.getMinutes()).padStart(2, '0')
+                        return `${year}-${month}-${day}T${hours}:${minutes}`
+                      }
+                      
+                      const endDateLocal = formatDateLocal(end)
+                      
+                      // Reschedule if needed
+                      if (selectedModalBookingId) {
+                        const reschedule = httpsCallable(functions, 'rescheduleBooking')
+                        await reschedule({
+                          bookingId: selectedModalBookingId,
+                          newStartTs: newStartDate,
+                          newEndTs: endDateLocal
+                        })
+                      }
+                      
+                      // Assign volunteer if selected
+                      if (selectedVolunteerId) {
+                        const assignVolunteer = httpsCallable(functions, 'assignVolunteerToBooking')
+                        const selectedVolunteer = availableVolunteers.find(v => v.id === selectedVolunteerId)
+                        
+                        await assignVolunteer({
+                          bookingId: selectedModalBookingId,
+                          volunteerId: selectedVolunteer?.id,
+                          volunteerName: selectedVolunteer?.name,
+                          volunteerEmail: selectedVolunteer?.email
+                        })
+                      }
                       
                       // Refresh bookings
                       loadBookings()
                       
-                      setIsVolunteerModalOpen(false)
-                      setSelectedVolunteerBookingId(null)
+                      setIsBookingModalOpen(false)
+                      setSelectedModalBookingId(null)
                       setSelectedVolunteerId('')
-                    } catch (error) {
-                      console.error('Error assigning volunteer:', error)
-                      setError('Failed to assign volunteer')
-                    }
-                  }}
-                  disabled={!selectedVolunteerId}
-                  className="px-4 py-2 text-sm font-medium text-white bg-feline-600 rounded-md hover:bg-feline-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Assign
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reschedule Modal */}
-      {isRescheduleModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Reschedule Appointment</h3>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  New Start Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={newStartDate}
-                  onChange={(e) => setNewStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  New End Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={newEndDate}
-                  onChange={(e) => setNewEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setIsRescheduleModalOpen(false)
-                    setSelectedRescheduleBookingId(null)
-                    setNewStartDate('')
-                    setNewEndDate('')
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      const functions = getFunctions()
-                      const reschedule = httpsCallable(functions, 'rescheduleBooking')
-                      await reschedule({
-                        bookingId: selectedRescheduleBookingId,
-                        newStartTs: newStartDate,
-                        newEndTs: newEndDate
-                      })
-                      console.log('Rescheduled to', newStartDate, '-', newEndDate)
-                      
-                      // Refresh bookings
-                      loadBookings()
-                      
-                      setIsRescheduleModalOpen(false)
-                      setSelectedRescheduleBookingId(null)
                       setNewStartDate('')
-                      setNewEndDate('')
                     } catch (error) {
-                      console.error('Error rescheduling:', error)
-                      setError('Failed to reschedule booking')
+                      console.error('Error updating booking:', error)
+                      setError('Failed to update booking')
                     }
                   }}
-                  disabled={!newStartDate || !newEndDate}
+                  disabled={!newStartDate || !!customDurationError}
                   className="px-4 py-2 text-sm font-medium text-white bg-feline-600 rounded-md hover:bg-feline-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Reschedule
+                  Save
                 </button>
               </div>
             </div>

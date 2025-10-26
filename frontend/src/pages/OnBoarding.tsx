@@ -26,9 +26,9 @@ interface OnboardingData {
   selectedCalendarName?: string
   users?: Array<{ id: string; name: string; email: string; role: 'volunteer' | 'admin'; calendarLinked: boolean; status: 'New' | 'Emailed' | 'Setup' | 'Error' | 'invited' | 'verified' }>
   meetingPreferences?: { 
-    inPerson: boolean
-    videoChat: boolean
-    adoptionEvent: boolean
+    inPerson?: boolean
+    videoChat?: boolean
+    adoptionEvent?: boolean
     inPersonDuration?: number | 'custom'
     videoChatDuration?: number | 'custom'
     inPersonCustomDuration?: number
