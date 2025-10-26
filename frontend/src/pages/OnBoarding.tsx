@@ -25,7 +25,15 @@ interface OnboardingData {
   selectedCalendarId?: string
   selectedCalendarName?: string
   users?: Array<{ id: string; name: string; email: string; role: 'volunteer' | 'admin'; calendarLinked: boolean; status: 'New' | 'Emailed' | 'Setup' | 'Error' | 'invited' | 'verified' }>
-  meetingPreferences?: { inPerson: boolean; videoChat: boolean; adoptionEvent: boolean }
+  meetingPreferences?: { 
+    inPerson: boolean
+    videoChat: boolean
+    adoptionEvent: boolean
+    inPersonDuration?: number | 'custom'
+    videoChatDuration?: number | 'custom'
+    inPersonCustomDuration?: number
+    videoChatCustomDuration?: number
+  }
   userName?: string
   invitedUsers?: Array<{ uuid: string; email: string; name: string; role: string; status: string; invitedAt: string; invitedBy: string; verifiedAt?: string }>
   organizationOnboarded?: boolean // Whether the organization has completed onboarding
@@ -61,6 +69,7 @@ const OnBoarding: React.FC = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [emailValidationErrors, setEmailValidationErrors] = useState<Map<string, string>>(new Map())
+  const [customDurationErrors, setCustomDurationErrors] = useState<Map<string, string>>(new Map())
   
   // Effect to prevent expandedStep from being reset on re-renders
   useEffect(() => {
@@ -314,9 +323,39 @@ const OnBoarding: React.FC = () => {
       // No server-side validation needed here
     }
     
-    if (currentStep === 5 && !onboardingData.meetingPreferences) {
-      setError('Please select at least one meeting preference')
-      return
+    if (currentStep === 5) {
+      if (!onboardingData.meetingPreferences) {
+        setError('Please select at least one meeting preference')
+        return
+      }
+      
+      // Validate that if In-Person is selected, duration is required
+      if (onboardingData.meetingPreferences.inPerson && !onboardingData.meetingPreferences.inPersonDuration) {
+        setError('Please select a default duration for In-Person meetings')
+        return
+      }
+      if (onboardingData.meetingPreferences.inPerson && onboardingData.meetingPreferences.inPersonDuration === 'custom' && !onboardingData.meetingPreferences.inPersonCustomDuration) {
+        setError('Please enter a custom duration for In-Person meetings')
+        return
+      }
+      if (onboardingData.meetingPreferences.inPerson && onboardingData.meetingPreferences.inPersonCustomDuration && onboardingData.meetingPreferences.inPersonCustomDuration < 1) {
+        setError('Custom duration must be at least 1 minute')
+        return
+      }
+      
+      // Validate that if Video Chat is selected, duration is required
+      if (onboardingData.meetingPreferences.videoChat && !onboardingData.meetingPreferences.videoChatDuration) {
+        setError('Please select a default duration for Video Chat meetings')
+        return
+      }
+      if (onboardingData.meetingPreferences.videoChat && onboardingData.meetingPreferences.videoChatDuration === 'custom' && !onboardingData.meetingPreferences.videoChatCustomDuration) {
+        setError('Please enter a custom duration for Video Chat meetings')
+        return
+      }
+      if (onboardingData.meetingPreferences.videoChat && onboardingData.meetingPreferences.videoChatCustomDuration && onboardingData.meetingPreferences.videoChatCustomDuration < 1) {
+        setError('Custom duration must be at least 1 minute')
+        return
+      }
     }
     
     // Save current step data before proceeding
@@ -1404,41 +1443,210 @@ const OnBoarding: React.FC = () => {
                         <h4 className="text-md font-medium text-gray-900 mb-2">Meeting Preferences</h4>
                         <p className="text-sm text-gray-600">How would you like to meet with potential adopters?</p>
                       </div>
-                      <div className="space-y-3">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={onboardingData.meetingPreferences?.inPerson || false}
-                            onChange={(e) => setOnboardingData(prev => ({
-                              ...prev,
-                              meetingPreferences: {
-                                ...prev.meetingPreferences,
-                                inPerson: e.target.checked,
-                                videoChat: prev.meetingPreferences?.videoChat || false,
-                                adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
-                              }
-                            }))}
-                            className="mr-3"
-                          />
-                          <span className="text-sm text-gray-700">In-Person</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={onboardingData.meetingPreferences?.videoChat || false}
-                            onChange={(e) => setOnboardingData(prev => ({
-                              ...prev,
-                              meetingPreferences: {
-                                ...prev.meetingPreferences,
-                                inPerson: prev.meetingPreferences?.inPerson || false,
-                                videoChat: e.target.checked,
-                                adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
-                              }
-                            }))}
-                            className="mr-3"
-                          />
-                          <span className="text-sm text-gray-700">Video Chat</span>
-                        </label>
+                      <div className="space-y-6">
+                        {/* In-Person Option */}
+                        <div className="border rounded-lg p-4">
+                          <label className="flex items-center mb-3">
+                            <input
+                              type="checkbox"
+                              checked={onboardingData.meetingPreferences?.inPerson || false}
+                              onChange={(e) => setOnboardingData(prev => ({
+                                ...prev,
+                                meetingPreferences: {
+                                  ...prev.meetingPreferences,
+                                  inPerson: e.target.checked,
+                                  videoChat: prev.meetingPreferences?.videoChat || false,
+                                  adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
+                                }
+                              }))}
+                              className="mr-3"
+                            />
+                            <span className="text-sm text-gray-700 font-medium">In-Person</span>
+                          </label>
+                          {onboardingData.meetingPreferences?.inPerson && (
+                            <div className="ml-6 space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Default Duration (minutes)
+                              </label>
+                              <select
+                                value={onboardingData.meetingPreferences?.inPersonDuration || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  setOnboardingData(prev => ({
+                                    ...prev,
+                                    meetingPreferences: {
+                                      ...prev.meetingPreferences,
+                                      inPersonDuration: value === 'custom' ? 'custom' : value === '' ? undefined : Number(value)
+                                    }
+                                  }))
+                                  // Clear error when changing
+                                  setCustomDurationErrors(prev => {
+                                    const newMap = new Map(prev)
+                                    newMap.delete('inPersonCustom')
+                                    return newMap
+                                  })
+                                }}
+                                className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                              >
+                                <option value="">Select duration...</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60">60 minutes</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                              {onboardingData.meetingPreferences?.inPersonDuration === 'custom' && (
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mt-2">
+                                    Custom Duration (minutes)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={onboardingData.meetingPreferences?.inPersonCustomDuration || ''}
+                                    onChange={(e) => {
+                                      const value = e.target.value
+                                      setOnboardingData(prev => ({
+                                        ...prev,
+                                        meetingPreferences: {
+                                          ...prev.meetingPreferences,
+                                          inPersonCustomDuration: value === '' ? undefined : Number(value)
+                                        }
+                                      }))
+                                      // Clear error when typing
+                                      setCustomDurationErrors(prev => {
+                                        const newMap = new Map(prev)
+                                        newMap.delete('inPersonCustom')
+                                        return newMap
+                                      })
+                                    }}
+                                    onBlur={(e) => {
+                                      const value = Number(e.target.value)
+                                      if (value < 1) {
+                                        setCustomDurationErrors(prev => {
+                                          const newMap = new Map(prev)
+                                          newMap.set('inPersonCustom', 'Duration must be at least 1 minute')
+                                          return newMap
+                                        })
+                                      }
+                                    }}
+                                    className={`block w-full max-w-xs px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                      customDurationErrors.has('inPersonCustom') ? 'border-red-500' : 'border-gray-300'
+                                    }`}
+                                    required
+                                  />
+                                  {customDurationErrors.has('inPersonCustom') && (
+                                    <p className="mt-1 text-sm text-red-600">{customDurationErrors.get('inPersonCustom')}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Video Chat Option */}
+                        <div className="border rounded-lg p-4">
+                          <label className="flex items-center mb-3">
+                            <input
+                              type="checkbox"
+                              checked={onboardingData.meetingPreferences?.videoChat || false}
+                              onChange={(e) => setOnboardingData(prev => ({
+                                ...prev,
+                                meetingPreferences: {
+                                  ...prev.meetingPreferences,
+                                  inPerson: prev.meetingPreferences?.inPerson || false,
+                                  videoChat: e.target.checked,
+                                  adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
+                                }
+                              }))}
+                              className="mr-3"
+                            />
+                            <span className="text-sm text-gray-700 font-medium">Video Chat</span>
+                          </label>
+                          {onboardingData.meetingPreferences?.videoChat && (
+                            <div className="ml-6 space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Default Duration (minutes)
+                              </label>
+                              <select
+                                value={onboardingData.meetingPreferences?.videoChatDuration || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  setOnboardingData(prev => ({
+                                    ...prev,
+                                    meetingPreferences: {
+                                      ...prev.meetingPreferences,
+                                      videoChatDuration: value === 'custom' ? 'custom' : value === '' ? undefined : Number(value)
+                                    }
+                                  }))
+                                  // Clear error when changing
+                                  setCustomDurationErrors(prev => {
+                                    const newMap = new Map(prev)
+                                    newMap.delete('videoChatCustom')
+                                    return newMap
+                                  })
+                                }}
+                                className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                              >
+                                <option value="">Select duration...</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60">60 minutes</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                              {onboardingData.meetingPreferences?.videoChatDuration === 'custom' && (
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mt-2">
+                                    Custom Duration (minutes)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={onboardingData.meetingPreferences?.videoChatCustomDuration || ''}
+                                    onChange={(e) => {
+                                      const value = e.target.value
+                                      setOnboardingData(prev => ({
+                                        ...prev,
+                                        meetingPreferences: {
+                                          ...prev.meetingPreferences,
+                                          videoChatCustomDuration: value === '' ? undefined : Number(value)
+                                        }
+                                      }))
+                                      // Clear error when typing
+                                      setCustomDurationErrors(prev => {
+                                        const newMap = new Map(prev)
+                                        newMap.delete('videoChatCustom')
+                                        return newMap
+                                      })
+                                    }}
+                                    onBlur={(e) => {
+                                      const value = Number(e.target.value)
+                                      if (value < 1) {
+                                        setCustomDurationErrors(prev => {
+                                          const newMap = new Map(prev)
+                                          newMap.set('videoChatCustom', 'Duration must be at least 1 minute')
+                                          return newMap
+                                        })
+                                      }
+                                    }}
+                                    className={`block w-full max-w-xs px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                      customDurationErrors.has('videoChatCustom') ? 'border-red-500' : 'border-gray-300'
+                                    }`}
+                                    required
+                                  />
+                                  {customDurationErrors.has('videoChatCustom') && (
+                                    <p className="mt-1 text-sm text-red-600">{customDurationErrors.get('videoChatCustom')}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Adoption Event Option */}
                         <label className="flex items-center">
                           <input
                             type="checkbox"
@@ -1454,7 +1662,7 @@ const OnBoarding: React.FC = () => {
                             }))}
                             className="mr-3"
                           />
-                          <span className="text-sm text-gray-700">Adoption Event</span>
+                          <span className="text-sm text-gray-700 font-medium">Adoption Event</span>
                         </label>
                       </div>
                     </div>
@@ -1516,18 +1724,35 @@ const OnBoarding: React.FC = () => {
                             
                             <div className="bg-gray-50 p-4 rounded-lg">
                               <h5 className="font-medium text-gray-900 mb-2">Meeting Preferences</h5>
-                              <div className="text-sm text-gray-600">
-                                {onboardingData.meetingPreferences ? 
-                                  Object.entries(onboardingData.meetingPreferences)
-                                    .filter(([_, enabled]) => enabled)
-                                    .map(([pref, _]) => (
-                                      <span key={pref} className="mr-2 capitalize">
-                                        {pref === 'inPerson' ? 'In-Person' : 
-                                         pref === 'videoChat' ? 'Video Chat' : 
-                                         pref === 'adoptionEvent' ? 'Adoption Event' : pref}
-                                      </span>
-                                    )) : 'Not selected'
-                                }
+                              <div className="text-sm text-gray-600 space-y-2">
+                                {onboardingData.meetingPreferences?.inPerson && (
+                                  <div>
+                                    <span className="font-medium">In-Person: </span>
+                                    <span>
+                                      {onboardingData.meetingPreferences.inPersonDuration === 'custom' 
+                                        ? `${onboardingData.meetingPreferences.inPersonCustomDuration || 0} minutes (custom)`
+                                        : `${onboardingData.meetingPreferences.inPersonDuration} minutes`
+                                      }
+                                    </span>
+                                  </div>
+                                )}
+                                {onboardingData.meetingPreferences?.videoChat && (
+                                  <div>
+                                    <span className="font-medium">Video Chat: </span>
+                                    <span>
+                                      {onboardingData.meetingPreferences.videoChatDuration === 'custom' 
+                                        ? `${onboardingData.meetingPreferences.videoChatCustomDuration || 0} minutes (custom)`
+                                        : `${onboardingData.meetingPreferences.videoChatDuration} minutes`
+                                      }
+                                    </span>
+                                  </div>
+                                )}
+                                {onboardingData.meetingPreferences?.adoptionEvent && (
+                                  <div>
+                                    <span className="font-medium">Adoption Event</span>
+                                  </div>
+                                )}
+                                {!onboardingData.meetingPreferences && 'Not selected'}
                               </div>
                             </div>
                           </>
