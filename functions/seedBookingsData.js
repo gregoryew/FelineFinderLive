@@ -13,7 +13,7 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-const orgId = 266; // Organization ID for the current user (as number to match user document)
+const orgId = 141; // Organization ID for the current user (as number to match user document)
 
 // Mock data for bookings
 const bookings = [
