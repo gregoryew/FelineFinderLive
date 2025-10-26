@@ -3685,9 +3685,9 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
 
-    const adopterEmail = booking?.adopterEmail || booking?.adopter
+    const adopterEmail = booking?.adopterEmail
     if (!adopterEmail) {
-      throw new functions.https.HttpsError('failed-precondition', 'Booking has no email address')
+      throw new functions.https.HttpsError('failed-precondition', 'Booking has no email address (adopterEmail field is missing)')
     }
 
     // Get Postmark API key
@@ -3810,7 +3810,15 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
             console.log(`Email sent successfully to ${adopterEmail}`)
             resolve()
           } else {
-            reject(new Error(`Postmark API error: ${res.statusCode}`))
+            console.error(`Postmark API error: ${res.statusCode}`)
+            console.error('Postmark response:', data)
+            try {
+              const errorData = JSON.parse(data)
+              console.error('Postmark error details:', errorData)
+              reject(new Error(`Postmark API error: ${res.statusCode} - ${errorData.Message || errorData.ErrorCode || data}`))
+            } catch (e) {
+              reject(new Error(`Postmark API error: ${res.statusCode} - ${data}`))
+            }
           }
         })
       })
