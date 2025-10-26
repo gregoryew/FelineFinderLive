@@ -326,8 +326,8 @@ const OnBoarding: React.FC = () => {
     if (currentStep === 5) {
       if (!onboardingData.meetingPreferences) {
         setError('Please select at least one meeting preference')
-        return
-      }
+          return
+        }
       
       // Validate that if In-Person is selected, duration is required
       if (onboardingData.meetingPreferences.inPerson && !onboardingData.meetingPreferences.inPersonDuration) {
@@ -346,7 +346,7 @@ const OnBoarding: React.FC = () => {
       // Validate that if Video Chat is selected, duration is required
       if (onboardingData.meetingPreferences.videoChat && !onboardingData.meetingPreferences.videoChatDuration) {
         setError('Please select a default duration for Video Chat meetings')
-        return
+      return
       }
       if (onboardingData.meetingPreferences.videoChat && onboardingData.meetingPreferences.videoChatDuration === 'custom' && !onboardingData.meetingPreferences.videoChatCustomDuration) {
         setError('Please enter a custom duration for Video Chat meetings')
@@ -450,7 +450,7 @@ const OnBoarding: React.FC = () => {
           if (userRole === 'admin') {
             window.location.href = '/bookings'
           } else {
-            window.location.href = '/work-schedule'
+        window.location.href = '/work-schedule'
           }
         }, 2000)
       } else {
@@ -553,20 +553,20 @@ const OnBoarding: React.FC = () => {
     }
     
     // During initial onboarding, show appropriate button text
-    if (isTeamMember) {
-      // Volunteers: "Next Step" for step 1, "Finish Setup" for step 2
-      if (step <= 1) {
-        return 'Next Step'
-      } else if (step === 2) {
-        return 'Finish Setup'
-      }
-    } else {
-      // Admins: "Next Step" for steps 1-5, "Finish Setup" for step 6
-      if (step <= 5) {
-        return 'Next Step'
-      } else if (step === 6) {
-        return 'Finish Setup'
-      }
+      if (isTeamMember) {
+        // Volunteers: "Next Step" for step 1, "Finish Setup" for step 2
+        if (step <= 1) {
+          return 'Next Step'
+        } else if (step === 2) {
+          return 'Finish Setup'
+        }
+      } else {
+        // Admins: "Next Step" for steps 1-5, "Finish Setup" for step 6
+        if (step <= 5) {
+          return 'Next Step'
+        } else if (step === 6) {
+          return 'Finish Setup'
+        }
     }
     
     // Fallback
@@ -771,12 +771,10 @@ const OnBoarding: React.FC = () => {
     }
   }
 
-  // Filter users based on search term and exclude current user
-  const filteredUsers = onboardingData.users?.filter(teamMember => 
-    // Filter out the current user - they shouldn't see themselves in the team members list
-    teamMember.id !== user?.uid &&
-    (teamMember.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teamMember.email?.toLowerCase().includes(searchTerm.toLowerCase()))
+  // Filter users based on search term
+  const filteredUsers = onboardingData.users?.filter(user => 
+    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
 
   // Require authentication to access onboarding
@@ -1059,18 +1057,18 @@ const OnBoarding: React.FC = () => {
                           'Transport Group'
                         ].map((type) => (
                           <label key={type} className="flex items-center cursor-pointer">
-                            <input
-                              type="radio"
-                              name="organizationType"
+                          <input
+                            type="radio"
+                            name="organizationType"
                               value={type}
                               checked={onboardingData.organizationType === type}
-                              onChange={(e) => {
+                            onChange={(e) => {
                                 setOnboardingData(prev => ({ ...prev, organizationType: e.target.value as any }))
-                              }}
+                            }}
                               className="mr-2"
-                            />
+                          />
                             <span className="text-sm text-gray-700">{type}</span>
-                          </label>
+                        </label>
                         ))}
                       </div>
                     </div>
@@ -1226,21 +1224,21 @@ const OnBoarding: React.FC = () => {
                       </div>
                       
                       {onboardingData.pendingSetup && (
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={() => {
-                                if (selectedUserIds.length > 0) {
-                                  setShowConfirmDialog(true)
-                                }
-                              }}
-                              disabled={loading || selectedUserIds.length === 0}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              📧 Email Invitation ({selectedUserIds.length} selected)
-                            </button>
-                          </div>
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => {
+                              if (selectedUserIds.length > 0) {
+                                setShowConfirmDialog(true)
+                              }
+                            }}
+                            disabled={loading || selectedUserIds.length === 0}
+                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            📧 Email Invitation ({selectedUserIds.length} selected)
+                          </button>
                         </div>
+                      </div>
                       )}
                       
                       {/* Confirmation Dialog */}
@@ -1279,20 +1277,20 @@ const OnBoarding: React.FC = () => {
                           <thead className="bg-gray-50">
                             <tr>
                               {onboardingData.pendingSetup && (
-                                <th className="px-3 py-3 text-left">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedUserIds(filteredUsers.map(u => u.id))
-                                      } else {
-                                        setSelectedUserIds([])
-                                      }
-                                    }}
-                                    className="rounded border-gray-300"
-                                  />
-                                </th>
+                              <th className="px-3 py-3 text-left">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedUserIds(filteredUsers.map(u => u.id))
+                                    } else {
+                                      setSelectedUserIds([])
+                                    }
+                                  }}
+                                  className="rounded border-gray-300"
+                                />
+                              </th>
                               )}
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
@@ -1305,20 +1303,20 @@ const OnBoarding: React.FC = () => {
                             {filteredUsers.map((user, index) => (
                               <tr key={user.id}>
                                 {onboardingData.pendingSetup && (
-                                  <td className="px-3 py-4 whitespace-nowrap">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedUserIds.includes(user.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedUserIds([...selectedUserIds, user.id])
-                                        } else {
-                                          setSelectedUserIds(selectedUserIds.filter(id => id !== user.id))
-                                        }
-                                      }}
-                                      className="rounded border-gray-300"
-                                    />
-                                  </td>
+                                <td className="px-3 py-4 whitespace-nowrap">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedUserIds.includes(user.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedUserIds([...selectedUserIds, user.id])
+                                      } else {
+                                        setSelectedUserIds(selectedUserIds.filter(id => id !== user.id))
+                                      }
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                </td>
                                 )}
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <input
@@ -1436,26 +1434,26 @@ const OnBoarding: React.FC = () => {
                         {/* In-Person Option */}
                         <div className="border rounded-lg p-4">
                           <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={onboardingData.meetingPreferences?.inPerson || false}
-                              onChange={(e) => setOnboardingData(prev => ({
-                                ...prev,
-                                meetingPreferences: {
-                                  ...prev.meetingPreferences,
-                                  inPerson: e.target.checked,
-                                  videoChat: prev.meetingPreferences?.videoChat || false,
-                                  adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
-                                }
-                              }))}
-                              className="mr-3"
-                            />
+                          <input
+                            type="checkbox"
+                            checked={onboardingData.meetingPreferences?.inPerson || false}
+                            onChange={(e) => setOnboardingData(prev => ({
+                              ...prev,
+                              meetingPreferences: {
+                                ...prev.meetingPreferences,
+                                inPerson: e.target.checked,
+                                videoChat: prev.meetingPreferences?.videoChat || false,
+                                adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
+                              }
+                            }))}
+                            className="mr-3"
+                          />
                             <span className="text-sm text-gray-700 font-medium">In-Person</span>
                             {onboardingData.meetingPreferences?.inPerson && (
                               <>
                                 <label className="text-sm font-medium text-gray-700 ml-4">
                                   Default Duration:
-                                </label>
+                        </label>
                                 <select
                                   value={onboardingData.meetingPreferences?.inPersonDuration || ''}
                                   onChange={(e) => {
@@ -1538,26 +1536,26 @@ const OnBoarding: React.FC = () => {
                         {/* Video Chat Option */}
                         <div className="border rounded-lg p-4">
                           <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={onboardingData.meetingPreferences?.videoChat || false}
-                              onChange={(e) => setOnboardingData(prev => ({
-                                ...prev,
-                                meetingPreferences: {
-                                  ...prev.meetingPreferences,
-                                  inPerson: prev.meetingPreferences?.inPerson || false,
-                                  videoChat: e.target.checked,
-                                  adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
-                                }
-                              }))}
-                              className="mr-3"
-                            />
+                          <input
+                            type="checkbox"
+                            checked={onboardingData.meetingPreferences?.videoChat || false}
+                            onChange={(e) => setOnboardingData(prev => ({
+                              ...prev,
+                              meetingPreferences: {
+                                ...prev.meetingPreferences,
+                                inPerson: prev.meetingPreferences?.inPerson || false,
+                                videoChat: e.target.checked,
+                                adoptionEvent: prev.meetingPreferences?.adoptionEvent || false
+                              }
+                            }))}
+                            className="mr-3"
+                          />
                             <span className="text-sm text-gray-700 font-medium">Video Chat</span>
                             {onboardingData.meetingPreferences?.videoChat && (
                               <>
                                 <label className="text-sm font-medium text-gray-700 ml-4">
                                   Default Duration:
-                                </label>
+                        </label>
                                 <select
                                   value={onboardingData.meetingPreferences?.videoChatDuration || ''}
                                   onChange={(e) => {
@@ -1724,7 +1722,7 @@ const OnBoarding: React.FC = () => {
                                         ? `${onboardingData.meetingPreferences.inPersonCustomDuration || 0} minutes (custom)`
                                         : `${onboardingData.meetingPreferences.inPersonDuration} minutes`
                                       }
-                                    </span>
+                                      </span>
                                   </div>
                                 )}
                                 {onboardingData.meetingPreferences?.videoChat && (
