@@ -113,7 +113,7 @@ async function createTestAdmin() {
     console.log('🎉 Test Admin User Created Successfully!');
     console.log('='.repeat(60));
     console.log('\n📋 Next Steps:');
-    console.log('   1. Go to http://127.0.0.1:5002');
+    console.log('   1. Go to http://127.0.0.1:3000');
     console.log('   2. Click "Sign in with Google" in the header');
     console.log(`   3. Sign in with: ${email}`);
     console.log('   4. You will be automatically verified and redirected\n');

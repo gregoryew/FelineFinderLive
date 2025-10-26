@@ -47,7 +47,7 @@ When user selects organization:
 3. **Email Sent via Postmark**:
    - **Test Mode** (local development): Sends to `greg@felinefinder.org`
    - **Production Mode**: Sends to organization's registered email
-   - Contains verification link: `http://127.0.0.1:5002/jwt-verification?jwt=<token>`
+   - Contains verification link: `http://127.0.0.1:3000/jwt-verification?jwt=<token>`
 
 ### 3. Email Click & Verification
 **Page**: `/jwt-verification?jwt=<token>`
@@ -120,7 +120,7 @@ User proceeds to complete organization setup:
 
 ### Test Mode (Local Development)
 - Email sent to: `greg@felinefinder.org`
-- Verification URL: `http://127.0.0.1:5002/jwt-verification?jwt=...`
+- Verification URL: `http://127.0.0.1:3000/jwt-verification?jwt=...`
 - Email includes TEST MODE banner and original recipient info
 - Firestore: `catapp-44885` (production database)
 
@@ -191,7 +191,7 @@ User proceeds to complete organization setup:
    firebase emulators:start --only functions,hosting
    ```
 
-2. Access portal: `http://127.0.0.1:5002`
+2. Access portal: `http://127.0.0.1:3000`
 
 3. Click "Start Organization Setup"
 

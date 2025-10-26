@@ -71,7 +71,7 @@ When running locally (or when `TEST_MODE=true`), emails will be sent to `gregory
 
 To test:
 
-1. Access the portal at `http://127.0.0.1:5002/organization-entry`
+1. Access the portal at `http://127.0.0.1:3000/organization-entry`
 2. Search for an organization (e.g., "Cat Rescue of Maryland, Inc.")
 3. Select it and proceed
 4. Check `gregoryew@gmail.com` for the test email

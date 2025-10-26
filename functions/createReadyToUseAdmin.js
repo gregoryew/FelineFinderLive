@@ -92,7 +92,7 @@ async function createReadyToUseAdmin() {
     console.log('🎉 Ready-to-Use Admin Created Successfully!');
     console.log('='.repeat(70));
     console.log('\n📋 Usage Instructions:');
-    console.log('   1. Go to: http://127.0.0.1:5002');
+    console.log('   1. Go to: http://127.0.0.1:3000');
     console.log('   2. Click "Sign in with Google" in the header');
     console.log(`   3. Sign in with: ${email}`);
     console.log('   4. You\'ll see "Welcome, ' + userName + '!" immediately');

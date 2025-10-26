@@ -20,7 +20,6 @@ interface OperatingHoursEntry {
 const WorkSchedule: React.FC = () => {
   const { user } = useAuth()
   const [operatingHours, setOperatingHours] = useState<OperatingHoursEntry[]>([])
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userName, setUserName] = useState<string>('')
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -31,7 +30,6 @@ const WorkSchedule: React.FC = () => {
       if (!user) return
 
       try {
-        setLoading(true)
         const functions = getFunctions()
         const getWorkScheduleFunc = httpsCallable(functions, 'getWorkSchedule')
         const response = await getWorkScheduleFunc({})
@@ -51,7 +49,7 @@ const WorkSchedule: React.FC = () => {
         console.error('Error loading work schedule:', error)
         setError('Failed to load work schedule data')
       } finally {
-        setLoading(false)
+        // Loading state removed
       }
     }
 

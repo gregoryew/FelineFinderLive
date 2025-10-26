@@ -29,7 +29,7 @@ async function makeUserAdmin() {
       .get();
     
     if (usersSnapshot.empty) {
-      console.log('❌ User not found. Please sign in first at http://127.0.0.1:5002');
+      console.log('❌ User not found. Please sign in first at http://127.0.0.1:3000');
       console.log('   Then run this script again.');
       process.exit(1);
     }
@@ -54,7 +54,7 @@ async function makeUserAdmin() {
     console.log('🎉 You are now an admin!');
     console.log('='.repeat(60));
     console.log('\n📋 Next steps:');
-    console.log('   1. Refresh the page: http://127.0.0.1:5002');
+    console.log('   1. Refresh the page: http://127.0.0.1:3000');
     console.log('   2. You should see "Welcome, [Your Name]!"');
     console.log('   3. Access all admin features\n');
     

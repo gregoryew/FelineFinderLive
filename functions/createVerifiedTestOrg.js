@@ -87,7 +87,7 @@ async function createVerifiedTestOrg() {
     console.log('🎉 Test Organization Created Successfully (Email Bypassed!)');
     console.log('='.repeat(70));
     console.log('\n📋 Next Steps:');
-    console.log('   1. Go to http://127.0.0.1:5002');
+    console.log('   1. Go to http://127.0.0.1:3000');
     console.log('   2. Click "Sign in with Google" in the header');
     console.log(`   3. Sign in with: ${email}`);
     console.log('   4. System will detect verified organization');

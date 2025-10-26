@@ -147,7 +147,7 @@ async function sendInvitationEmail(
 
     // Generate verification URL
     const frontendUrl = isLocalDevelopment
-      ? 'http://localhost:5002'
+      ? 'http://localhost:3000'
       : 'https://catapp-44885.web.app'
     
     const verificationUrl = `${frontendUrl}/team-member-verification?token=${encodeURIComponent(token)}&uuid=${uuid}&orgId=${orgId}`

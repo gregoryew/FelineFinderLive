@@ -69,16 +69,15 @@ export const getBookings = functions.https.onCall(async (data, context) => {
     // Get user's organization
     const userDoc = await admin.firestore()
       .collection('shelter_people')
-      .where('uid', '==', userId)
-      .limit(1)
+      .doc(userId)
       .get()
 
-    if (userDoc.empty) {
+    if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
     }
 
-    const userData = userDoc.docs[0].data()
-    const orgId = userData.orgId
+    const userData = userDoc.data()
+    const orgId = userData?.orgId
 
     if (!orgId) {
       throw new functions.https.HttpsError('failed-precondition', 'User is not associated with an organization')
@@ -129,16 +128,15 @@ export const createBooking = functions.https.onCall(async (data, context) => {
     // Get user's organization
     const userDoc = await admin.firestore()
       .collection('shelter_people')
-      .where('uid', '==', userId)
-      .limit(1)
+      .doc(userId)
       .get()
 
-    if (userDoc.empty) {
+    if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
     }
 
-    const userData = userDoc.docs[0].data()
-    const orgId = userData.orgId
+    const userData = userDoc.data()
+    const orgId = userData?.orgId
 
     if (!orgId) {
       throw new functions.https.HttpsError('failed-precondition', 'User is not associated with an organization')

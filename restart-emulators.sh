@@ -13,12 +13,12 @@ ps aux | grep -E "(firebase|node)" | grep -v grep | awk '{print $2}' | xargs kil
 sleep 1
 
 echo "🔴 STEP 3: Killing any processes still on emulator ports..."
-lsof -ti:5002,9099,4000,5001,4400,4500 2>/dev/null | xargs kill -9 2>/dev/null || true
+lsof -ti:3000,9099,4000,5001,4400,4500 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 2
 
 echo ""
 echo "✅ VERIFICATION: Checking ports are FREE..."
-for port in 5002 9099 4000 5001 4400 4500; do
+for port in 3000 9099 4000 5001 4400 4500; do
   if lsof -ti:$port 2>/dev/null; then
     echo "❌ ERROR: Port $port is STILL BLOCKED!"
     echo "   Run: lsof -ti:$port | xargs kill -9"
@@ -56,7 +56,7 @@ echo ""
 echo "📋 Useful commands:"
 echo "  - View logs: tail -f emulator.log"
 echo "  - Stop emulators: kill $EMULATOR_PID"
-echo "  - Portal: http://127.0.0.1:5002"
+echo "  - Portal: http://127.0.0.1:3000"
 echo "  - Emulator UI: http://127.0.0.1:4000"
 echo ""
 echo "⏳ Waiting 5 seconds for emulators to start..."

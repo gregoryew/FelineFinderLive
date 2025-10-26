@@ -198,6 +198,11 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onCalendarCon
       const result = await response.json()
       const { authUrl } = result
       
+      // Save current step to sessionStorage before redirecting
+      const currentStep = sessionStorage.getItem('onboarding_current_step') || '3'
+      const expandedStep = sessionStorage.getItem('onboarding_expanded_step') || '3'
+      console.log('💾 Saving step before OAuth redirect - current:', currentStep, 'expanded:', expandedStep)
+      
       // Redirect to Google OAuth
       window.location.href = authUrl
     } catch (error) {

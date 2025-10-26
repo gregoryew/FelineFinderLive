@@ -289,7 +289,8 @@ export const createSecurityMiddleware = () => {
     // IP whitelist middleware
     checkIPWhitelist: (req: any, res: any, next: any) => {
       if (!config.ipWhitelist.enabled) {
-        return next()
+        next()
+        return
       }
       
       const clientIP = req.ip || req.connection.remoteAddress

@@ -38,8 +38,15 @@ const OnBoarding: React.FC = () => {
   const searchParams = new URLSearchParams(location.search)
   const orgId = searchParams.get('orgId')
   
-  const [currentStep, setCurrentStep] = useState(1)
-  const [expandedStep, setExpandedStep] = useState(1)
+  // Initialize state from sessionStorage if available, otherwise use defaults
+  const [currentStep, setCurrentStep] = useState(() => {
+    const saved = sessionStorage.getItem('onboarding_current_step')
+    return saved ? parseInt(saved, 10) : 1
+  })
+  const [expandedStep, setExpandedStep] = useState(() => {
+    const saved = sessionStorage.getItem('onboarding_expanded_step')
+    return saved ? parseInt(saved, 10) : 1
+  })
   
   // Prevent expandedStep from being reset on re-renders
   const [expandedStepLocked, setExpandedStepLocked] = useState(false)
@@ -69,19 +76,10 @@ const OnBoarding: React.FC = () => {
     }
   }, [currentStep])
   
-  // Effect to restore expanded step from sessionStorage on component mount
+  // Effect to update ref when expanded step changes (for state management)
   useEffect(() => {
-    const savedExpandedStep = sessionStorage.getItem('onboarding_expanded_step')
-    if (savedExpandedStep) {
-      const stepNumber = parseInt(savedExpandedStep, 10)
-      if (stepNumber > 0) {
-        setExpandedStep(stepNumber)
-        expandedStepRef.current = stepNumber
-        setExpandedStepLocked(true)
-        console.log('🔄 Restored expanded step from sessionStorage:', stepNumber)
-      }
-    }
-  }, []) // Only run on mount
+    expandedStepRef.current = expandedStep
+  }, [expandedStep])
   
   // Check if this is a team member (not admin) - determines which steps to show
   const userRole = localStorage.getItem('onboarding_user_role') || currentUserRole
@@ -108,13 +106,6 @@ const OnBoarding: React.FC = () => {
     }
   }, [])
 
-  useEffect(() => {
-    // Only load onboarding progress if user is authenticated
-    if (user) {
-      loadOnboardingProgress()
-      checkCalendarStatus()
-    }
-  }, [user, loadOnboardingProgress, checkCalendarStatus]) // Include memoized functions
 
   // Set initial step for team members after role is determined
   useEffect(() => {
@@ -133,17 +124,32 @@ const OnBoarding: React.FC = () => {
     }
   }, [user, orgId, currentStep])
 
-  // Debug logging (disabled to reduce console spam)
-  // useEffect(() => {
-  //   console.log('OnBoarding Debug:', {
-  //     currentStep,
-  //     expandedStep,
-  //     isOnboardingCompleted,
-  //     loading,
-  //     error,
-  //     onboardingDataKeys: Object.keys(onboardingData)
-  //   })
-  // }, [currentStep, expandedStep, isOnboardingCompleted, loading, error, onboardingData])
+  // Debug logging for step state changes
+  useEffect(() => {
+    console.log('🔄 Step state changed:', {
+      currentStep,
+      expandedStep,
+      isOnboardingCompleted,
+      calendarConnected: onboardingData.calendarConnected,
+      userRole: userRole
+    })
+  }, [currentStep, expandedStep, isOnboardingCompleted, onboardingData.calendarConnected, userRole])
+
+  // Auto-save current step to sessionStorage whenever it changes
+  useEffect(() => {
+    if (currentStep > 0) {
+      sessionStorage.setItem('onboarding_current_step', currentStep.toString())
+      console.log('💾 Saved current step to sessionStorage:', currentStep)
+    }
+  }, [currentStep])
+
+  // Auto-save expanded step to sessionStorage whenever it changes
+  useEffect(() => {
+    if (expandedStep > 0) {
+      sessionStorage.setItem('onboarding_expanded_step', expandedStep.toString())
+      console.log('💾 Saved expanded step to sessionStorage:', expandedStep)
+    }
+  }, [expandedStep])
 
   // Removed auto-save logic - now only saves on Next Step or manual Save Progress
 
@@ -207,16 +213,27 @@ const OnBoarding: React.FC = () => {
             setOnboardingData(syncedData)
             
             // Determine user role from backend response
+            console.log('DEBUG: getOnboardingProgress response:', {
+              userRole: data.userRole,
+              completed: data.completed,
+              pendingSetup: data.pendingSetup,
+              hasOnboardingData: !!data.onboarding
+            })
+            
             if (data.userRole) {
+              console.log('DEBUG: Setting role from backend response:', data.userRole)
               setCurrentUserRole(data.userRole)
               localStorage.setItem('onboarding_user_role', data.userRole)
             } else {
+              console.log('DEBUG: No userRole in response, using fallback logic')
               // Fallback: check if user is in organization users array
               const currentUser = data.onboarding.users?.find(u => u.id === user.uid)
               if (currentUser) {
+                console.log('DEBUG: Found user in organization users array:', currentUser.role)
                 setCurrentUserRole(currentUser.role)
                 localStorage.setItem('onboarding_user_role', currentUser.role)
               } else {
+                console.log('DEBUG: No user found, defaulting to admin')
                 // Default to admin for new users
                 setCurrentUserRole('admin')
                 localStorage.setItem('onboarding_user_role', 'admin')
@@ -323,6 +340,8 @@ const OnBoarding: React.FC = () => {
           const nextStep = currentStep + 1
           setCurrentStep(nextStep)
           setExpandedStep(nextStep)
+          // Save current step to sessionStorage to preserve across OAuth redirects
+          sessionStorage.setItem('onboarding_current_step', nextStep.toString())
         } else {
           // Complete onboarding
           await completeOnboarding()
@@ -333,6 +352,8 @@ const OnBoarding: React.FC = () => {
           const nextStep = currentStep + 1
           setCurrentStep(nextStep)
           setExpandedStep(nextStep)
+          // Save current step to sessionStorage to preserve across OAuth redirects
+          sessionStorage.setItem('onboarding_current_step', nextStep.toString())
         } else {
           // Complete onboarding
           await completeOnboarding()
@@ -349,11 +370,26 @@ const OnBoarding: React.FC = () => {
       setLoading(true)
       setError(null)
       
-      // Use Firebase callable function instead of HTTP request
       const functions = getFunctions()
-      const completeOnboardingFn = httpsCallable(functions, 'completeOnboarding')
       
-      const result = await completeOnboardingFn({ organizationData: onboardingData })
+      // 1. Send emails to team members if there are any
+      let emailResults: any = null
+      const teamMembers = onboardingData.users?.filter((u: any) => u.role === 'volunteer') || []
+      
+      if (teamMembers.length > 0) {
+        console.log('Sending emails to team members:', teamMembers)
+        const sendInvitations = httpsCallable(functions, 'sendTeamMemberInvitations')
+        const selectedUserIds = teamMembers.map((u: any) => u.id)
+        emailResults = await sendInvitations({ selectedUserIds })
+        console.log('Email results:', emailResults.data)
+      }
+      
+      // 2. Set pendingSetup to false and complete onboarding
+      const completeOnboardingFn = httpsCallable(functions, 'completeOnboarding')
+      const result = await completeOnboardingFn({ 
+        organizationData: onboardingData,
+        emailResults: emailResults?.data
+      })
       
       const resultData = result.data as any
       
@@ -361,21 +397,16 @@ const OnBoarding: React.FC = () => {
         // Set onboarding as completed
         setIsOnboardingCompleted(true)
         
-        // Set current step to 6 (Review & Finish) to show completed styling
-        setCurrentStep(6)
-        setExpandedStep(6)
-        
-        // Show success message briefly before redirecting
+        // Show success message with email results
         let successMessage = 'Onboarding completed successfully!'
         
-        // Show email results if there were team members
-        if (resultData.emailResults && resultData.emailResults.length > 0) {
-          const successCount = resultData.totalEmailsSent || 0
-          const failCount = resultData.totalEmailsFailed || 0
+        if (emailResults?.data) {
+          const successCount = emailResults.data.totalSent || 0
+          const failCount = emailResults.data.totalFailed || 0
           
           if (failCount > 0) {
             successMessage = `Onboarding completed! ${successCount} invitation${successCount !== 1 ? 's' : ''} sent successfully, but ${failCount} failed to send. You can retry sending invitations later.`
-          } else {
+          } else if (successCount > 0) {
             successMessage = `Onboarding completed! ${successCount} invitation${successCount !== 1 ? 's' : ''} sent successfully.`
           }
         }
@@ -383,9 +414,15 @@ const OnBoarding: React.FC = () => {
         // Show success message
         setError(successMessage)
         
-        // Redirect to work time page after a brief delay to show success message
+        // 3. Redirect based on role: admin -> bookings, volunteer -> work time
+        const userRole = localStorage.getItem('onboarding_user_role') || currentUserRole
+        
         setTimeout(() => {
-          window.location.href = '/work-schedule'
+          if (userRole === 'admin') {
+            window.location.href = '/bookings'
+          } else {
+            window.location.href = '/work-schedule'
+          }
         }, 2000)
       } else {
         throw new Error('Failed to complete onboarding')
@@ -425,12 +462,20 @@ const OnBoarding: React.FC = () => {
     }
   }, [user]) // Only recreate when user changes
 
+  // Load onboarding progress when user is authenticated
+  useEffect(() => {
+    // Only load onboarding progress if user is authenticated
+    if (user) {
+      loadOnboardingProgress()
+      checkCalendarStatus()
+    }
+  }, [user, loadOnboardingProgress, checkCalendarStatus]) // Include memoized functions
+
   const handleCalendarConnectionChange = (connected: boolean) => {
     setOnboardingData(prev => ({ ...prev, calendarConnected: connected }))
-    // If calendar was just connected, reload onboarding data to get latest state
-    if (connected) {
-      loadOnboardingProgress()
-    }
+    // Don't reload onboarding progress when calendar connects - it can cause step state to reset
+    // The calendar connection status is already updated in the state above
+    console.log('📅 Calendar connection changed:', connected, 'Current step:', currentStep, 'Expanded step:', expandedStep)
   }
 
   const toggleStep = (step: number) => {
@@ -445,6 +490,9 @@ const OnBoarding: React.FC = () => {
     // Store in sessionStorage to persist across re-renders
     if (newExpandedStep > 0) {
       sessionStorage.setItem('onboarding_expanded_step', newExpandedStep.toString())
+      // Also update current step when user manually navigates to a step
+      setCurrentStep(newExpandedStep)
+      sessionStorage.setItem('onboarding_current_step', newExpandedStep.toString())
     } else {
       sessionStorage.removeItem('onboarding_expanded_step')
     }
