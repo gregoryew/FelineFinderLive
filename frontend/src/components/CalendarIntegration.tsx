@@ -264,7 +264,20 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onCalendarCon
       }
 
       const data = await response.json()
-      alert(`✅ ${data.message}\n\nEvent Link: ${data.eventLink}`)
+      
+      // Calculate tomorrow's date
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      
+      // Format as YYYY/MM/DD for Google Calendar URL
+      const year = tomorrow.getFullYear()
+      const month = String(tomorrow.getMonth() + 1).padStart(2, '0')
+      const day = String(tomorrow.getDate()).padStart(2, '0')
+      
+      // Open Google Calendar at the test event date
+      window.open(`https://calendar.google.com/calendar/r/day/${year}/${month}/${day}`, '_blank')
+      
+      alert(`✅ ${data.message}\n\nOpening Google Calendar to view the test event.`)
     } catch (error: any) {
       console.error('Error testing calendar:', error)
       alert(`❌ Calendar test failed: ${error.message}`)
