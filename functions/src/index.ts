@@ -3704,6 +3704,10 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
       }
     }
 
+    // In test mode, redirect emails to test address
+    const testEmail = 'gregoryew@gmail.com'
+    const recipientEmail = isLocalDevelopment ? testEmail : adopterEmail
+
     // Generate email content based on type
     let subject = ''
     let htmlBody = ''
@@ -3780,10 +3784,14 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
     // Send email via Postmark
     const postData = JSON.stringify({
       From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
-      To: adopterEmail,
-      Subject: subject,
-      HtmlBody: htmlBody,
-      TextBody: textBody,
+      To: recipientEmail,
+      Subject: isLocalDevelopment ? `[TEST] ${subject}` : subject,
+      HtmlBody: isLocalDevelopment 
+        ? `<div style="background-color: #ff6b6b; color: white; padding: 10px; text-align: center;"><strong>⚠️ TEST MODE - Email would normally go to: ${adopterEmail}</strong></div><br/>${htmlBody}`
+        : htmlBody,
+      TextBody: isLocalDevelopment 
+        ? `[TEST MODE - Original recipient: ${adopterEmail}]\n\n${textBody}`
+        : textBody,
       MessageStream: 'outbound'
     })
 
@@ -3807,7 +3815,7 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
         res.on('data', (chunk: any) => { data += chunk })
         res.on('end', () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            console.log(`Email sent successfully to ${adopterEmail}`)
+            console.log(`Email sent successfully to ${recipientEmail}${isLocalDevelopment ? ` (would normally go to: ${adopterEmail})` : ''}`)
             resolve()
           } else {
             console.error(`Postmark API error: ${res.statusCode}`)
@@ -3827,7 +3835,7 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
       req.end()
     })
 
-    return { success: true, message: `Email sent to ${adopterEmail}` }
+    return { success: true, message: `Email sent to ${recipientEmail}${isLocalDevelopment ? ` (original: ${adopterEmail})` : ''}` }
   } catch (error: any) {
     console.error('Error sending booking email:', error)
     throw new functions.https.HttpsError('internal', error.message || 'Failed to send email')
