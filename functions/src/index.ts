@@ -3283,3 +3283,406 @@ export {
   updateBookingNotes, 
   deleteBooking 
 } from './bookings/bookingsService'
+
+// =====================================================
+// BOOKING ACTIONS - Email, Volunteer Assignment, Calendar
+// =====================================================
+
+/**
+ * Assign or reassign a volunteer to a booking
+ */
+export const assignVolunteerToBooking = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  try {
+    const userId = context.auth.uid
+    const { bookingId, volunteerId, volunteerName, volunteerEmail } = data
+
+    if (!bookingId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Booking ID is required')
+    }
+
+    // Get the booking
+    const bookingRef = admin.firestore().collection('bookings').doc(bookingId)
+    const bookingDoc = await bookingRef.get()
+
+    if (!bookingDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Booking not found')
+    }
+
+    const booking = bookingDoc.data()
+
+    // Verify user has access
+    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
+      throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
+    }
+
+    // Update booking with volunteer assignment
+    await bookingRef.update({
+      volunteer: volunteerName || booking.volunteer,
+      volunteerId: volunteerId || booking.volunteerId,
+      volunteerEmail: volunteerEmail || booking.volunteerEmail,
+      status: booking.status === 'pending-confirmation' ? 'volunteer-assigned' : booking.status,
+      updatedAt: FieldValue.serverTimestamp(),
+      auditTrail: admin.firestore.FieldValue.arrayUnion({
+        fieldName: 'volunteer',
+        from: booking.volunteer || '',
+        to: volunteerName || booking.volunteer,
+        createdAt: FieldValue.serverTimestamp(),
+        changedBy: userId
+      })
+    })
+
+    console.log(`Assigned volunteer ${volunteerName} to booking ${bookingId}`)
+
+    return { success: true, bookingId }
+  } catch (error: any) {
+    console.error('Error assigning volunteer:', error)
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to assign volunteer')
+  }
+})
+
+/**
+ * Reschedule a booking (update start and end times)
+ */
+export const rescheduleBooking = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  try {
+    const userId = context.auth.uid
+    const { bookingId, newStartTs, newEndTs } = data
+
+    if (!bookingId || !newStartTs || !newEndTs) {
+      throw new functions.https.HttpsError('invalid-argument', 'Booking ID, new start time, and new end time are required')
+    }
+
+    // Get the booking
+    const bookingRef = admin.firestore().collection('bookings').doc(bookingId)
+    const bookingDoc = await bookingRef.get()
+
+    if (!bookingDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Booking not found')
+    }
+
+    const booking = bookingDoc.data()
+
+    // Verify user has access
+    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
+      throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
+    }
+
+    const oldStartTs = booking?.startTs
+    const oldEndTs = booking?.endTs
+
+    // Update booking with new times
+    await bookingRef.update({
+      startTs: admin.firestore.Timestamp.fromDate(new Date(newStartTs)),
+      endTs: admin.firestore.Timestamp.fromDate(new Date(newEndTs)),
+      updatedAt: FieldValue.serverTimestamp(),
+      auditTrail: admin.firestore.FieldValue.arrayUnion({
+        fieldName: 'rescheduled',
+        from: `${oldStartTs?.toDate()}-${oldEndTs?.toDate()}`,
+        to: `${newStartTs}-${newEndTs}`,
+        createdAt: FieldValue.serverTimestamp(),
+        changedBy: userId
+      })
+    })
+
+    console.log(`Rescheduled booking ${bookingId} to ${newStartTs}`)
+
+    return { success: true, bookingId }
+  } catch (error: any) {
+    console.error('Error rescheduling booking:', error)
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to reschedule booking')
+  }
+})
+
+/**
+ * Send email to adopter about appointment status
+ */
+export const sendBookingEmail = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  try {
+    const userId = context.auth.uid
+    const { bookingId, emailType } = data
+
+    if (!bookingId || !emailType) {
+      throw new functions.https.HttpsError('invalid-argument', 'Booking ID and email type are required')
+    }
+
+    // Get the booking
+    const bookingDoc = await admin.firestore().collection('bookings').doc(bookingId).get()
+    if (!bookingDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Booking not found')
+    }
+
+    const booking = bookingDoc.data()
+
+    // Verify user has access
+    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
+      throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
+    }
+
+    const adopterEmail = booking?.adopterEmail || booking?.adopter
+    if (!adopterEmail) {
+      throw new functions.https.HttpsError('failed-precondition', 'Booking has no email address')
+    }
+
+    // Get Postmark API key
+    const postmarkApiKey = process.env.POSTMARK_API_KEY
+    if (!postmarkApiKey) {
+      throw new functions.https.HttpsError('failed-precondition', 'Email service not configured')
+    }
+
+    // Generate email content based on type
+    let subject = ''
+    let htmlBody = ''
+    let textBody = ''
+
+    const catName = booking?.cat || 'your future feline friend'
+    const adopterName = booking?.adopter || 'Future Adopter'
+    const startTime = booking?.startTs?.toDate().toLocaleString() || 'TBD'
+    const endTime = booking?.endTs?.toDate().toLocaleString() || 'TBD'
+    const volunteerName = booking?.volunteer || 'our team'
+
+    switch (emailType) {
+      case 'setup':
+        subject = `Setup Complete: Welcome to ${booking?.orgId || 'Our Shelter'}'s Adoption Process`
+        htmlBody = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Your Adoption Appointment is Being Set Up</h2>
+            <p>Hello ${adopterName},</p>
+            <p>Thank you for choosing to adopt ${catName}! We're excited to help you bring your new family member home.</p>
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+              <li>We'll confirm your appointment time shortly</li>
+              <li>You'll receive a confirmation email with all the details</li>
+              <li>Please arrive 10 minutes early for your appointment</li>
+            </ol>
+            <p>If you have any questions, please don't hesitate to reach out.</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            <p style="color: #666; font-size: 12px;">This is an automated message from Feline Finder</p>
+          </div>
+        `
+        textBody = `Your adoption appointment for ${catName} is being set up. We'll send you confirmation shortly.`
+        break
+
+      case 'confirmation':
+        subject = `Appointment Confirmed: Meeting ${catName}`
+        htmlBody = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Your Adoption Appointment is Confirmed!</h2>
+            <p>Hello ${adopterName},</p>
+            <p>Your appointment to meet ${catName} has been confirmed.</p>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p><strong>Date & Time:</strong> ${startTime} - ${endTime}</p>
+              <p><strong>Your Volunteer Guide:</strong> ${volunteerName}</p>
+            </div>
+            <p>Please arrive 10 minutes early and bring a valid ID.</p>
+            <p>Looking forward to helping you meet your future companion!</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            <p style="color: #666; font-size: 12px;">This is an automated message from Feline Finder</p>
+          </div>
+        `
+        textBody = `Your adoption appointment is confirmed for ${startTime}. Your volunteer guide is ${volunteerName}.`
+        break
+
+      case 'congratulations':
+        subject = `🎉 Congratulations on Your Adoption of ${catName}!`
+        htmlBody = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Congratulations, ${adopterName}! 🎉</h2>
+            <p>We're thrilled to hear that ${catName} found their forever home with you!</p>
+            <p>Thank you for choosing adoption and for giving this wonderful cat a loving family.</p>
+            <p><strong>We wish you and ${catName} many happy years together!</strong></p>
+            <p>If you ever need anything, please don't hesitate to reach out to us.</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            <p style="color: #666; font-size: 12px;">This is an automated message from Feline Finder</p>
+          </div>
+        `
+        textBody = `Congratulations on adopting ${catName}! We wish you many happy years together.`
+        break
+
+      default:
+        throw new functions.https.HttpsError('invalid-argument', `Unknown email type: ${emailType}`)
+    }
+
+    // Send email via Postmark
+    const postData = JSON.stringify({
+      From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
+      To: adopterEmail,
+      Subject: subject,
+      HtmlBody: htmlBody,
+      TextBody: textBody,
+      MessageStream: 'outbound'
+    })
+
+    const options = {
+      hostname: 'api.postmarkapp.com',
+      port: 443,
+      path: '/email',
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+        'X-Postmark-Server-Token': postmarkApiKey
+      }
+    }
+
+    // Send email
+    await new Promise<void>((resolve, reject) => {
+      const req = https.request(options, (res: any) => {
+        let data = ''
+        res.on('data', (chunk: any) => { data += chunk })
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            console.log(`Email sent successfully to ${adopterEmail}`)
+            resolve()
+          } else {
+            reject(new Error(`Postmark API error: ${res.statusCode}`))
+          }
+        })
+      })
+      req.on('error', reject)
+      req.write(postData)
+      req.end()
+    })
+
+    return { success: true, message: `Email sent to ${adopterEmail}` }
+  } catch (error: any) {
+    console.error('Error sending booking email:', error)
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to send email')
+  }
+})
+
+/**
+ * Create or update Google Calendar event for a booking
+ */
+export const syncBookingToCalendar = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  try {
+    const userId = context.auth.uid
+    const { bookingId, action } = data // action: 'create', 'update', 'delete'
+
+    if (!bookingId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Booking ID is required')
+    }
+
+    // Get the booking
+    const bookingDoc = await admin.firestore().collection('bookings').doc(bookingId).get()
+    if (!bookingDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Booking not found')
+    }
+
+    const booking = bookingDoc.data()
+
+    // Get user and organization
+    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
+      throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
+    }
+
+    const orgId = booking.orgId
+
+    // Get organization with calendar credentials
+    const orgDoc = await admin.firestore().collection('organizations').doc(orgId).get()
+    if (!orgDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Organization not found')
+    }
+
+    const orgData = orgDoc.data()
+
+    if (!orgData?.calendarAccessToken || !orgData?.selectedCalendarId) {
+      throw new functions.https.HttpsError('failed-precondition', 'Calendar not connected for this organization')
+    }
+
+    // Set up OAuth2 client
+    const config = getConfig()
+    const redirectUri = isLocalDevelopment 
+      ? 'http://127.0.0.1:5001/catapp-44885/us-central1/gcalOAuthCallback'
+      : config.gcal.redirect_uri
+
+    const oauth2Client = new google.auth.OAuth2(
+      config.gcal.client_id,
+      config.gcal.client_secret,
+      redirectUri
+    )
+
+    oauth2Client.setCredentials({
+      access_token: orgData.calendarAccessToken,
+      refresh_token: orgData.calendarRefreshToken
+    })
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    if (action === 'delete' && booking?.calendarEventId) {
+      // Delete calendar event
+      await calendar.events.delete({
+        calendarId: orgData.selectedCalendarId,
+        eventId: booking.calendarEventId
+      })
+      console.log(`Deleted calendar event ${booking.calendarEventId} for booking ${bookingId}`)
+    } else {
+      // Create or update calendar event
+      const event = {
+        summary: `${booking.cat} Adoption - ${booking.adopter}`,
+        description: `Feline Finder Adoption Meeting\n\nCat: ${booking.cat}\nAdopter: ${booking.adopter}\nStatus: ${booking.status}`,
+        start: {
+          dateTime: booking.startTs?.toDate().toISOString(),
+          timeZone: booking.startTimeZone || 'America/New_York'
+        },
+        end: {
+          dateTime: booking.endTs?.toDate().toISOString(),
+          timeZone: booking.endTimeZone || 'America/New_York'
+        },
+        attendees: booking.adopterEmail ? [{ email: booking.adopterEmail }] : [],
+        location: 'To be determined',
+        status: 'confirmed'
+      }
+
+      let eventId = booking.calendarEventId
+
+      if (eventId) {
+        // Update existing event
+        await calendar.events.update({
+          calendarId: orgData.selectedCalendarId,
+          eventId: eventId,
+          requestBody: event
+        })
+        console.log(`Updated calendar event ${eventId} for booking ${bookingId}`)
+      } else {
+        // Create new event
+        const response = await calendar.events.insert({
+          calendarId: orgData.selectedCalendarId,
+          requestBody: event
+        })
+        eventId = response.data.id || ''
+
+        // Update booking with calendar event ID
+        await admin.firestore().collection('bookings').doc(bookingId).update({
+          calendarEventId: eventId
+        })
+        console.log(`Created calendar event ${eventId} for booking ${bookingId}`)
+      }
+    }
+
+    return { success: true, bookingId, calendarEventId: booking?.calendarEventId }
+  } catch (error: any) {
+    console.error('Error syncing booking to calendar:', error)
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to sync booking to calendar')
+  }
+})

@@ -128,6 +128,17 @@ const Bookings: React.FC = () => {
   const [currentLayoutName, setCurrentLayoutName] = useState<string>('')
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false)
   const [layoutNameInput, setLayoutNameInput] = useState('')
+  
+  // Volunteer assignment modal
+  const [isVolunteerModalOpen, setIsVolunteerModalOpen] = useState(false)
+  const [selectedVolunteerBookingId, setSelectedVolunteerBookingId] = useState<string | null>(null)
+  const [availableVolunteers, setAvailableVolunteers] = useState<any[]>([])
+  
+  // Reschedule modal
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false)
+  const [selectedRescheduleBookingId, setSelectedRescheduleBookingId] = useState<string | null>(null)
+  const [newStartDate, setNewStartDate] = useState('')
+  const [newEndDate, setNewEndDate] = useState('')
 
   // Load saved layouts from localStorage on component mount
   useEffect(() => {
@@ -674,53 +685,114 @@ const Bookings: React.FC = () => {
   // Handle action button clicks
   const handleActionClick = async (booking: Booking, action: string) => {
     try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions')
+      const functions = getFunctions()
+      
       let newStatus: Booking['status'] | null = null
 
       switch (action) {
         case 'send-email':
+          // Send setup email
+          const sendEmail = httpsCallable(functions, 'sendBookingEmail')
+          await sendEmail({ 
+            bookingId: booking.id, 
+            emailType: 'setup' 
+          })
+          console.log(`Sent setup email for booking ${booking.id}`)
+          break
+          
         case 'resend-email':
-          console.log('Sending email for booking:', booking.id)
-          // TODO: Implement email sending
+          // Resend confirmation email
+          const resendEmail = httpsCallable(functions, 'sendBookingEmail')
+          await resendEmail({ 
+            bookingId: booking.id, 
+            emailType: 'confirmation' 
+          })
+          console.log(`Resent confirmation email for booking ${booking.id}`)
           break
+          
         case 'reschedule':
-          console.log('Opening reschedule modal for booking:', booking.id)
-          // TODO: Open reschedule modal with date picker
+          // Open reschedule modal
+          setSelectedRescheduleBookingId(booking.id)
+          setIsRescheduleModalOpen(true)
           break
+          
         case 'confirm-setup':
           newStatus = 'pending-confirmation'
           break
+          
         case 'confirm':
           newStatus = 'confirmed'
+          // Sync to calendar when confirmed
+          try {
+            const syncCalendar = httpsCallable(functions, 'syncBookingToCalendar')
+            await syncCalendar({ bookingId: booking.id, action: 'update' })
+            console.log('Synced to calendar')
+          } catch (err) {
+            console.error('Calendar sync failed:', err)
+          }
           break
+          
         case 'assign-volunteer':
-          console.log('Opening assign volunteer modal for booking:', booking.id)
-          // TODO: Open volunteer assignment modal
-          break
         case 'reassign-volunteer':
-          console.log('Opening reassign volunteer modal for booking:', booking.id)
-          // TODO: Open volunteer reassignment modal
+          // TODO: Load available volunteers from organization
+          setSelectedVolunteerBookingId(booking.id)
+          setIsVolunteerModalOpen(true)
           break
+          
         case 'start-visit':
           newStatus = 'in-progress'
           break
+          
         case 'complete-visit':
           newStatus = 'completed'
           break
+          
         case 'mark-adopted':
           newStatus = 'adopted'
+          // Send congratulations email
+          try {
+            const sendCongrats = httpsCallable(functions, 'sendBookingEmail')
+            await sendCongrats({ 
+              bookingId: booking.id, 
+              emailType: 'congratulations' 
+            })
+          } catch (err) {
+            console.error('Failed to send congratulations email:', err)
+          }
           break
+          
         case 'cancel':
           newStatus = 'cancelled'
+          // Delete calendar event
+          try {
+            const syncCalendar = httpsCallable(functions, 'syncBookingToCalendar')
+            await syncCalendar({ bookingId: booking.id, action: 'delete' })
+            console.log('Deleted calendar event')
+          } catch (err) {
+            console.error('Calendar delete failed:', err)
+          }
           break
+          
         case 'reactivate':
           newStatus = 'pending-confirmation'
           break
+          
         case 'add-notes':
           handleNotesClick(booking.id!)
           break
+          
         case 'send-congrats':
-          console.log('Sending congratulations for booking:', booking.id)
-          // TODO: Implement congratulations email
+          try {
+            const sendCongrats = httpsCallable(functions, 'sendBookingEmail')
+            await sendCongrats({ 
+              bookingId: booking.id, 
+              emailType: 'congratulations' 
+            })
+            console.log('Sent congratulations email')
+          } catch (err) {
+            console.error('Failed to send congratulations email:', err)
+          }
           break
       }
 
@@ -1338,6 +1410,124 @@ const Bookings: React.FC = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-feline-600 border border-transparent rounded-md hover:bg-feline-700 focus:outline-none focus:ring-2 focus:ring-feline-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save Layout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Volunteer Assignment Modal */}
+      {isVolunteerModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Assign Volunteer</h3>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select a Volunteer
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
+                  defaultValue=""
+                >
+                  <option value="">-- Select Volunteer --</option>
+                  {/* TODO: Load volunteers from organization */}
+                  <option value="volunteer1">John Doe</option>
+                  <option value="volunteer2">Jane Smith</option>
+                </select>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setIsVolunteerModalOpen(false)
+                    setSelectedVolunteerBookingId(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    // TODO: Implement volunteer assignment
+                    const { getFunctions, httpsCallable } = await import('firebase/functions')
+                    const functions = getFunctions()
+                    const assignVolunteer = httpsCallable(functions, 'assignVolunteerToBooking')
+                    // await assignVolunteer({ bookingId: selectedVolunteerBookingId, ... })
+                    console.log('Assign volunteer to', selectedVolunteerBookingId)
+                    setIsVolunteerModalOpen(false)
+                    setSelectedVolunteerBookingId(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-feline-600 rounded-md hover:bg-feline-700"
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {isRescheduleModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Reschedule Appointment</h3>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Start Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newStartDate}
+                  onChange={(e) => setNewStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New End Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newEndDate}
+                  onChange={(e) => setNewEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-feline-500 focus:border-feline-500"
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setIsRescheduleModalOpen(false)
+                    setSelectedRescheduleBookingId(null)
+                    setNewStartDate('')
+                    setNewEndDate('')
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const { getFunctions, httpsCallable } = await import('firebase/functions')
+                    const functions = getFunctions()
+                    const reschedule = httpsCallable(functions, 'rescheduleBooking')
+                    await reschedule({
+                      bookingId: selectedRescheduleBookingId,
+                      newStartTs: newStartDate,
+                      newEndTs: newEndDate
+                    })
+                    console.log('Rescheduled to', newStartDate, '-', newEndDate)
+                    setIsRescheduleModalOpen(false)
+                    setSelectedRescheduleBookingId(null)
+                    setNewStartDate('')
+                    setNewEndDate('')
+                    loadBookings() // Refresh bookings
+                  }}
+                  disabled={!newStartDate || !newEndDate}
+                  className="px-4 py-2 text-sm font-medium text-white bg-feline-600 rounded-md hover:bg-feline-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Reschedule
                 </button>
               </div>
             </div>
