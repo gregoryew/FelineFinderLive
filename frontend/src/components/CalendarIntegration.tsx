@@ -352,8 +352,8 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onCalendarCon
                       
                       // Special case: "Make a New Calendar"
                       if (newCalendarId === 'make_new_calendar') {
-                        // Open Google Calendar in a new tab
-                        window.open('https://calendar.google.com/calendar/u/0/r', '_blank')
+                        // Open Google Calendar settings to create a new calendar
+                        window.open('https://calendar.google.com/calendar/u/0/r/settings/createcalendar', '_blank')
                         // Reset selection to current value
                         setSelectedCalendarId(selectedCalendarId)
                         return
