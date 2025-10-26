@@ -60,6 +60,7 @@ const OnBoarding: React.FC = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [emailValidationErrors, setEmailValidationErrors] = useState<Map<string, string>>(new Map())
   
   // Effect to prevent expandedStep from being reset on re-renders
   useEffect(() => {
@@ -84,9 +85,6 @@ const OnBoarding: React.FC = () => {
   // Check if this is a team member (not admin) - determines which steps to show
   const userRole = localStorage.getItem('onboarding_user_role') || currentUserRole
   const isTeamMember = userRole === 'member' || userRole === 'volunteer'
-  
-  // Debug logging (reduced)
-  console.log('OnBoarding - User role:', userRole, 'isTeamMember:', isTeamMember)
 
 
   // Handle OAuth callback parameters
@@ -312,16 +310,8 @@ const OnBoarding: React.FC = () => {
     }
     
     if (currentStep === 4) {
-      // Validate email addresses in step 4 (Team Members) (only if users exist)
-      if (onboardingData.users && onboardingData.users.length > 0) {
-        const invalidEmails = onboardingData.users.filter(user => 
-          user.email && !validateEmail(user.email)
-        )
-        if (invalidEmails.length > 0) {
-          setError('Please fix invalid email addresses before proceeding')
-          return
-        }
-      }
+      // Email validation is handled visually on blur only, not when clicking Next Step
+      // No server-side validation needed here
     }
     
     if (currentStep === 5 && !onboardingData.meetingPreferences) {
@@ -499,13 +489,17 @@ const OnBoarding: React.FC = () => {
   }
 
   const validateEmail = (email: string): boolean => {
-    return email.includes('@') && email.includes('.') && email.length > 0
+    if (!email || email.length === 0) return true // Empty is OK (not required)
+    // More robust email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
   }
 
   const getEmailValidationError = (email: string): string | null => {
-    if (email.length === 0) return null // Empty is OK (not required)
+    if (!email || email.length === 0) return null // Empty is OK (not required)
     if (!email.includes('@')) return 'Email must contain @'
     if (!email.includes('.')) return 'Email must contain .'
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) return 'Invalid email format'
     return null
   }
 
@@ -1314,23 +1308,48 @@ const OnBoarding: React.FC = () => {
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div>
                                     <input
-                                      type="email"
-                                      value={user.email}
+                                      type="text"
+                                      value={user.email || ''}
                                       onChange={(e) => {
                                         const newUsers = [...(onboardingData.users || [])]
                                         newUsers[index].email = e.target.value
                                         setOnboardingData(prev => ({ ...prev, users: newUsers }))
+                                        // Clear any existing validation error when typing
+                                        if (emailValidationErrors.has(user.id)) {
+                                          setEmailValidationErrors(prev => {
+                                            const newMap = new Map(prev)
+                                            newMap.delete(user.id)
+                                            return newMap
+                                          })
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        // Run validation and store the error
+                                        const email = e.target.value
+                                        if (email && email.length > 0 && !validateEmail(email)) {
+                                          setEmailValidationErrors(prev => {
+                                            const newMap = new Map(prev)
+                                            newMap.set(user.id, getEmailValidationError(email) || 'Invalid email')
+                                            return newMap
+                                          })
+                                        } else {
+                                          setEmailValidationErrors(prev => {
+                                            const newMap = new Map(prev)
+                                            newMap.delete(user.id)
+                                            return newMap
+                                          })
+                                        }
                                       }}
                                       className={`border rounded-md px-3 py-1 text-sm w-full ${
-                                        user.email && !validateEmail(user.email) 
+                                        emailValidationErrors.has(user.id)
                                           ? 'border-red-300 bg-red-50' 
                                           : 'border-gray-300'
                                       }`}
                                       placeholder="email@example.com"
                                     />
-                                    {user.email && !validateEmail(user.email) && (
+                                    {emailValidationErrors.has(user.id) && (
                                       <p className="text-xs text-red-600 mt-1">
-                                        {getEmailValidationError(user.email)}
+                                        {emailValidationErrors.get(user.id)}
                                       </p>
                                     )}
                                   </div>

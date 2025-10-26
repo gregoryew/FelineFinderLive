@@ -51,7 +51,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
 
     checkOnboardingStatus()
-  }, [user])
+  }, [user, location.pathname])
 
   const handleSignIn = async () => {
     try {

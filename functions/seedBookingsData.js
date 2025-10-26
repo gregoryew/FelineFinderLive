@@ -2,6 +2,9 @@ const admin = require('firebase-admin');
 const path = require('path');
 const serviceAccount = require('./serviceAccountKey.json');
 
+// Configure Firestore to use emulator BEFORE initializing
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+
 // Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -10,16 +13,12 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// Configure Firestore to use emulator
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-
-const orgId = '2430'; // Organization ID from logs
+const orgId = 266; // Organization ID for the current user (as number to match user document)
 
 // Mock data for bookings
 const bookings = [
   // pending-shelter-setup status
   {
-    calendarId: 1,
     adopter: 'John Doe',
     adopterId: 101,
     cat: 'Fluffy',
@@ -31,7 +30,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'john.doe@example.com',
     status: 'pending-shelter-setup',
     notes: 'New adopter interested in meeting Fluffy',
@@ -39,7 +38,6 @@ const bookings = [
     description: 'Initial meet and greet with adopter for Fluffy'
   },
   {
-    calendarId: 1,
     adopter: 'Jane Smith',
     adopterId: 102,
     cat: 'Whiskers',
@@ -51,7 +49,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'jane.smith@example.com',
     status: 'pending-shelter-setup',
     notes: 'Follow-up meeting',
@@ -59,7 +57,6 @@ const bookings = [
     description: 'Second meeting with potential adopter'
   },
   {
-    calendarId: 1,
     adopter: 'Bob Johnson',
     adopterId: 103,
     cat: 'Luna',
@@ -71,7 +68,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'bob.johnson@example.com',
     status: 'pending-shelter-setup',
     notes: 'First time visitor',
@@ -81,7 +78,6 @@ const bookings = [
   
   // pending-confirmation status
   {
-    calendarId: 1,
     adopter: 'Sarah Williams',
     adopterId: 104,
     cat: 'Mittens',
@@ -93,7 +89,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'sarah.williams@example.com',
     status: 'pending-confirmation',
     notes: 'Awaiting adopter confirmation',
@@ -101,7 +97,6 @@ const bookings = [
     description: 'Adoption meeting pending confirmation'
   },
   {
-    calendarId: 1,
     adopter: 'Mike Brown',
     adopterId: 105,
     cat: 'Shadow',
@@ -113,7 +108,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'mike.brown@example.com',
     status: 'pending-confirmation',
     notes: 'Follow-up needed',
@@ -123,7 +118,6 @@ const bookings = [
   
   // confirmed status
   {
-    calendarId: 1,
     adopter: 'Emily Davis',
     adopterId: 106,
     cat: 'Max',
@@ -135,7 +129,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'emily.davis@example.com',
     status: 'confirmed',
     notes: 'Adopter confirmed',
@@ -143,7 +137,6 @@ const bookings = [
     description: 'Confirmed adoption meeting for Max'
   },
   {
-    calendarId: 1,
     adopter: 'David Wilson',
     adopterId: 107,
     cat: 'Chloe',
@@ -155,7 +148,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'david.wilson@example.com',
     status: 'confirmed',
     notes: 'Ready to proceed',
@@ -165,7 +158,6 @@ const bookings = [
   
   // volunteer-assigned status
   {
-    calendarId: 1,
     adopter: 'Lisa Anderson',
     adopterId: 108,
     cat: 'Buddy',
@@ -177,7 +169,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'lisa.anderson@example.com',
     status: 'volunteer-assigned',
     notes: 'Volunteer assigned',
@@ -185,7 +177,6 @@ const bookings = [
     description: 'Meeting with volunteer assigned'
   },
   {
-    calendarId: 1,
     adopter: 'Tom Taylor',
     adopterId: 109,
     cat: 'Bella',
@@ -197,7 +188,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'tom.taylor@example.com',
     status: 'volunteer-assigned',
     notes: 'Meeting scheduled',
@@ -207,7 +198,6 @@ const bookings = [
   
   // in-progress status
   {
-    calendarId: 1,
     adopter: 'Nancy Martinez',
     adopterId: 110,
     cat: 'Simba',
@@ -219,7 +209,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'nancy.martinez@example.com',
     status: 'in-progress',
     notes: 'Meeting is currently in progress',
@@ -229,7 +219,6 @@ const bookings = [
   
   // completed status
   {
-    calendarId: 1,
     adopter: 'Robert Lee',
     adopterId: 111,
     cat: 'Tiger',
@@ -241,7 +230,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'robert.lee@example.com',
     status: 'completed',
     notes: 'Meeting completed successfully',
@@ -249,7 +238,6 @@ const bookings = [
     description: 'Adoption meeting completed'
   },
   {
-    calendarId: 1,
     adopter: 'Patricia Garcia',
     adopterId: 112,
     cat: 'Oreo',
@@ -261,7 +249,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'patricia.garcia@example.com',
     status: 'completed',
     notes: 'Met adopter requirements',
@@ -271,7 +259,6 @@ const bookings = [
   
   // adopted status
   {
-    calendarId: 1,
     adopter: 'James Moore',
     adopterId: 113,
     cat: 'Tux',
@@ -283,7 +270,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'james.moore@example.com',
     status: 'adopted',
     notes: 'Cat successfully adopted',
@@ -293,7 +280,6 @@ const bookings = [
   
   // cancelled status
   {
-    calendarId: 1,
     adopter: 'Jennifer White',
     adopterId: 114,
     cat: 'Lucky',
@@ -305,7 +291,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'jennifer.white@example.com',
     status: 'cancelled',
     notes: 'Adopter cancelled appointment',
@@ -313,7 +299,6 @@ const bookings = [
     description: 'Meeting was cancelled by adopter'
   },
   {
-    calendarId: 1,
     adopter: 'Mark Harris',
     adopterId: 115,
     cat: 'Princess',
@@ -325,7 +310,7 @@ const bookings = [
     volunteer: 'Greg',
     volunteerId: 'MqehHfOpZOLDX3ZfstcoCBVeyRve',
     groupId: 1,
-    shelterId: 2430,
+    shelterId: 266,
     adopterEmail: 'mark.harris@example.com',
     status: 'cancelled',
     notes: 'No longer interested',
@@ -338,16 +323,19 @@ async function seedBookings() {
   try {
     console.log(`Seeding bookings for organization ${orgId}...`);
     
-    // Add each booking to Firestore
+    // Add each booking to Firestore with sequential calendarId
+    let calendarIdCounter = 1;
     for (const booking of bookings) {
-      // Add orgId field to each booking
+      // Add orgId field and sequential calendarId to each booking
       const bookingData = {
         ...booking,
+        calendarId: calendarIdCounter,
         orgId: orgId
       };
       
       await db.collection('bookings').add(bookingData);
-      console.log(`✓ Added booking for ${booking.adopter} - ${booking.cat} (${booking.status})`);
+      console.log(`✓ Added booking for ${booking.adopter} - ${booking.cat} (${booking.status}) - calendarId: ${calendarIdCounter}`);
+      calendarIdCounter++;
     }
     
     console.log(`\n✅ Successfully added ${bookings.length} bookings to the database!`);

@@ -155,6 +155,15 @@ async function sendInvitationEmail(
     // Get Postmark API key from environment
     const postmarkApiKey = process.env.POSTMARK_API_KEY
 
+    // In local development, skip sending if Postmark is not configured
+    if (isLocalDevelopment && (!postmarkApiKey || postmarkApiKey === 'your_postmark_api_key_here')) {
+      console.log('⚠️ Postmark API key not configured. Skipping email send in local development.')
+      console.log('📧 Team member invitation email would be sent to:', email)
+      console.log('📧 Organization name:', orgName)
+      console.log('🔗 Verification URL:', verificationUrl)
+      return { success: true }
+    }
+
     if (!postmarkApiKey) {
       console.error('POSTMARK_API_KEY not configured')
       return { success: false, error: 'Email service not configured' }

@@ -137,6 +137,112 @@ const getConfig = () => {
   }
 }
 
+// Helper function to generate mock booking data for testing
+async function generateMockBookings(orgId: string | number) {
+  try {
+    console.log(`📦 Generating mock bookings for organization ${orgId}...`)
+    
+    const numericOrgId = typeof orgId === 'string' ? parseInt(orgId) : orgId
+    
+    // Mock bookings data with various statuses
+    const bookings = [
+      // pending-shelter-setup
+      {
+        adopter: 'John Doe', adopterId: 101, cat: 'Fluffy', catId: 201,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T10:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T11:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'john.doe@example.com',
+        status: 'pending-shelter-setup', notes: 'New adopter interested', summary: 'Adoption meeting', description: 'Initial meet'
+      },
+      {
+        adopter: 'Jane Smith', adopterId: 102, cat: 'Whiskers', catId: 202,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-28T14:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-28T15:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'jane.smith@example.com',
+        status: 'pending-shelter-setup', notes: 'Follow-up meeting', summary: 'Meeting with Jane', description: 'Second meeting'
+      },
+      {
+        adopter: 'Bob Johnson', adopterId: 103, cat: 'Luna', catId: 203,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-29T16:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-29T17:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'bob.johnson@example.com',
+        status: 'pending-shelter-setup', notes: 'First time visitor', summary: 'Initial consultation', description: 'New adopter consultation'
+      },
+      // pending-confirmation
+      {
+        adopter: 'Sarah Williams', adopterId: 104, cat: 'Mittens', catId: 204,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T13:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T14:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'sarah.williams@example.com',
+        status: 'pending-confirmation', notes: 'Awaiting confirmation', summary: 'Meeting with Sarah', description: 'Adoption meeting pending'
+      },
+      {
+        adopter: 'Mike Brown', adopterId: 105, cat: 'Shadow', catId: 205,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-28T10:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-28T11:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'mike.brown@example.com',
+        status: 'pending-confirmation', notes: 'Follow-up needed', summary: 'Shadow adoption', description: 'Second meeting with Mike'
+      },
+      // confirmed
+      {
+        adopter: 'Emily Davis', adopterId: 106, cat: 'Max', catId: 206,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T15:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T16:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'emily.davis@example.com',
+        status: 'confirmed', notes: 'Adopter confirmed', summary: 'Confirmed meeting', description: 'Confirmed adoption meeting'
+      },
+      // volunteer-assigned
+      {
+        adopter: 'Lisa Anderson', adopterId: 108, cat: 'Buddy', catId: 208,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T11:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T12:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'lisa.anderson@example.com',
+        status: 'volunteer-assigned', notes: 'Volunteer assigned', summary: 'Volunteer assigned', description: 'Meeting with volunteer assigned'
+      },
+      // completed
+      {
+        adopter: 'Robert Lee', adopterId: 111, cat: 'Tiger', catId: 211,
+        startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-25T14:00:00Z')),
+        startTimeZone: 'America/New_York', endTimeZone: 'America/New_York',
+        endTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-25T15:00:00Z')),
+        volunteer: 'Greg', volunteerId: 'test-volunteer-1', groupId: 1,
+        shelterId: numericOrgId, orgId: numericOrgId, adopterEmail: 'robert.lee@example.com',
+        status: 'completed', notes: 'Meeting completed', summary: 'Completed meeting', description: 'Adoption meeting completed'
+      }
+    ]
+    
+    // Add bookings to Firestore with sequential calendarId
+    let calendarIdCounter = 1
+    for (const booking of bookings) {
+      const bookingData = {
+        ...booking,
+        calendarId: calendarIdCounter
+      }
+      await admin.firestore().collection('bookings').add(bookingData)
+      console.log(`✓ Added booking for ${booking.adopter} - ${booking.cat} (${booking.status}) - calendarId: ${calendarIdCounter}`)
+      calendarIdCounter++
+    }
+    
+    console.log(`✅ Successfully added ${bookings.length} mock bookings for organization ${orgId}`)
+  } catch (error) {
+    console.error('❌ Error generating mock bookings:', error)
+  }
+}
+
 // Get RescueGroups API key (requires authentication)
 export const getRescueGroupsApiKey = functions.https.onRequest(async (req, res) => {
   return corsHandler(req, res, async () => {
@@ -378,8 +484,25 @@ export const sendOrganizationInvite = functions.https.onCall(async (data: any, c
 
     // Send invitation email using Postmark
     const postmarkApiKey = process.env.POSTMARK_API_KEY
-    if (!postmarkApiKey) {
-      throw new functions.https.HttpsError('failed-precondition', 'Email service not configured')
+    if (!postmarkApiKey || postmarkApiKey === 'your_postmark_api_key_here') {
+      console.log('⚠️  Postmark API key not configured. Skipping email send in local development.')
+      console.log('📧 Invitation email would be sent to:', inviteeEmail)
+      console.log('🔗 Invitation URL:', invitationUrl)
+      
+      // In development, just return success without sending email
+      if (isLocalDevelopment) {
+        return {
+          userId,
+          organizationName: cleanOrgName,
+          rescueGroupsOrgId: cleanOrgId,
+          inviteeEmail: cleanEmail,
+          role: cleanRole,
+          inviterName: cleanInviterName,
+          invitationToken
+        }
+      } else {
+        throw new functions.https.HttpsError('failed-precondition', 'Email service not configured')
+      }
     }
 
     const subject = `Invitation to join ${organizationName} - Feline Finder`
@@ -405,12 +528,20 @@ Accept your invitation: ${invitationUrl}
 This invitation will expire in 7 days.
     `
 
+    // In test mode, redirect emails to a test address
+    const testEmail = 'gregoryew@gmail.com'
+    const recipientEmail = isLocalDevelopment ? testEmail : inviteeEmail
+    
     const postData = JSON.stringify({
       From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
-      To: inviteeEmail,
-      Subject: subject,
-      HtmlBody: htmlBody,
-      TextBody: textBody,
+      To: recipientEmail,
+      Subject: isLocalDevelopment ? `[TEST] ${subject}` : subject,
+      HtmlBody: isLocalDevelopment 
+        ? `<div style="background-color: #ff6b6b; color: white; padding: 10px; text-align: center;"><strong>⚠️ TEST MODE</strong></div><br/>${htmlBody.replace(`<h2 style="color: #2563eb;">You're invited to join ${organizationName}</h2>`, `<h2 style="color: #2563eb;">[TEST] You're invited to join ${organizationName}</h2><p><strong>Original Recipient:</strong> ${inviteeEmail}</p>`)}`
+        : htmlBody,
+      TextBody: isLocalDevelopment 
+        ? `[TEST MODE - Original Recipient: ${inviteeEmail}]\n\n${textBody}`
+        : textBody,
       MessageStream: 'outbound'
     })
 
@@ -1948,8 +2079,18 @@ async function sendOrgVerificationEmailInternal(orgId: string, userId: string, v
 
     // Send verification email using Postmark
     const postmarkApiKey = process.env.POSTMARK_API_KEY
-    if (!postmarkApiKey) {
-      throw new Error('Email service not configured')
+    if (!postmarkApiKey || postmarkApiKey === 'your_postmark_api_key_here') {
+      console.log('⚠️  Postmark API key not configured. Skipping email send.')
+      console.log('📧 Verification email would be sent to:', orgEmail)
+      console.log('🔗 Verification URL:', verificationUrl)
+      
+      // In development, just log and return success
+      if (isLocalDevelopment) {
+        console.log('✅ Verification UUID created:', verificationUuid)
+        return // Don't send email in development when API key not configured
+      } else {
+        throw new Error('Email service not configured')
+      }
     }
 
     const subject = 'Verify Your Organization - Feline Finder'
@@ -2076,14 +2217,6 @@ export const sendOrganizationVerificationEmail = functions.https.onRequest(async
         : 'https://feline-finder-org-portal.web.app'
       const verificationUrl = `${frontendUrl}/verify-organization?uuid=${verificationUuid}&orgId=${orgId}`
 
-      // Get Postmark API key
-      const postmarkApiKey = process.env.POSTMARK_API_KEY
-      if (!postmarkApiKey) {
-        console.error('POSTMARK_API_KEY not configured')
-        res.status(500).json({ error: 'Email service not configured' })
-        return
-      }
-
       // Get organization email from RescueGroups data
       let orgEmail = orgData?.rescueGroupsEmail
       if (!orgEmail) {
@@ -2095,6 +2228,28 @@ export const sendOrganizationVerificationEmail = functions.https.onRequest(async
       if (!orgEmail) {
         res.status(400).json({ error: 'Organization email not found in RescueGroups' })
         return
+      }
+
+      // Get Postmark API key
+      const postmarkApiKey = process.env.POSTMARK_API_KEY
+      if (!postmarkApiKey || postmarkApiKey === 'your_postmark_api_key_here') {
+        console.log('⚠️  Postmark API key not configured. Skipping email send in local development.')
+        console.log('📧 Verification email would be sent to:', orgEmail)
+        console.log('🔗 Verification URL:', verificationUrl)
+        
+        // In development, just return success without sending email
+        if (isLocalDevelopment) {
+          res.json({
+            success: true,
+            message: 'Verification email would be sent (Postmark not configured)',
+            verificationUuid: verificationUuid,
+            verificationUrl: verificationUrl
+          })
+          return
+        } else {
+          res.status(500).json({ error: 'Email service not configured' })
+          return
+        }
       }
 
       // Prepare email content
@@ -2132,13 +2287,21 @@ If you did not request this verification or are not the administrator, please ig
 This email was sent by Feline Finder Organization Portal
       `
 
+      // In test mode, redirect emails to a test address
+      const testEmail = 'gregoryew@gmail.com'
+      const recipientEmail = isLocalDevelopment ? testEmail : orgEmail
+      
       // Send email via Postmark
       const postData = JSON.stringify({
         From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
-        To: orgEmail,
-        Subject: subject,
-        HtmlBody: htmlBody,
-        TextBody: textBody,
+        To: recipientEmail,
+        Subject: isLocalDevelopment ? `[TEST] ${subject}` : subject,
+        HtmlBody: isLocalDevelopment 
+          ? `<div style="background-color: #ff6b6b; color: white; padding: 10px; text-align: center;"><strong>⚠️ TEST MODE</strong></div><br/>${htmlBody.replace('<h2 style="color: #2563eb;">Organization Verification Required</h2>', '<h2 style="color: #2563eb;">[TEST] Organization Verification Required</h2><p><strong>Original Recipient:</strong> ' + orgEmail + '</p><p><strong>Organization:</strong> ' + (orgData?.rescueGroupsName || 'Unknown') + '</p>')}`
+          : htmlBody,
+        TextBody: isLocalDevelopment 
+          ? `[TEST MODE - Original Recipient: ${orgEmail}]\nOrganization: ${orgData?.rescueGroupsName || 'Unknown'}\n\n${textBody}`
+          : textBody,
         MessageStream: 'outbound'
       })
 
@@ -2509,6 +2672,13 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
       await admin.firestore().collection('organizations').doc(orgId).set(orgDocument)
       console.log('Successfully wrote organization document to Firestore')
 
+      // In test mode, generate mock booking data for the new organization
+      const isTestMode = isLocalDevelopment || process.env.TEST_MODE === 'true'
+      if (isTestMode) {
+        console.log(`📦 TEST MODE: Generating mock booking data for orgId: ${orgId}`)
+        await generateMockBookings(orgId)
+      }
+
       // Generate JWT with UUID and OrgID
       const jwt = require('jsonwebtoken')
       const jwtSecret = process.env.JWT_SECRET || 'your-secret-key'
@@ -2537,9 +2707,7 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
         : 'https://feline-finder-org-portal.web.app'
       const verificationUrl = `${frontendUrl}/jwt-verification?jwt=${token}`
 
-      // Check if we're in test/development mode
-      const isTestMode = isLocalDevelopment || process.env.TEST_MODE === 'true'
-      
+      // isTestMode is already defined above
       if (isTestMode) {
         // In test mode, send email to greg@felinefinder.org instead of the real organization
         const testEmail = 'greg@felinefinder.org'
@@ -2547,8 +2715,29 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
         console.log('Original organization email:', orgEmail)
         console.log('Verification URL:', verificationUrl)
         
+        // Check if Postmark API key is configured
+        const postmarkApiKey = process.env.POSTMARK_API_KEY
+        if (!postmarkApiKey || postmarkApiKey === 'your_postmark_api_key_here') {
+          console.log('⚠️  Postmark API key not configured. Skipping email send in local development.')
+          console.log('📧 Organization verification email would be sent to:', orgEmail)
+          console.log('🔗 Verification URL:', verificationUrl)
+          
+          res.json({
+            success: true,
+            testMode: true,
+            skippedEmail: true,
+            emailDetails: {
+              to: orgEmail,
+              verificationUrl: verificationUrl,
+              organizationName: orgData.attributes?.name || 'Unknown',
+              message: 'Email sending skipped (Postmark not configured in local development)'
+            }
+          })
+          return
+        }
+        
         // Initialize Postmark client
-        const postmarkClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY || '')
+        const postmarkClient = new postmark.ServerClient(postmarkApiKey)
 
         await postmarkClient.sendEmail({
           From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
@@ -3484,8 +3673,16 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
 
     // Get Postmark API key
     const postmarkApiKey = process.env.POSTMARK_API_KEY
-    if (!postmarkApiKey) {
-      throw new functions.https.HttpsError('failed-precondition', 'Email service not configured')
+    if (!postmarkApiKey || postmarkApiKey === 'your_postmark_api_key_here') {
+      console.log('⚠️  Postmark API key not configured. Skipping email send in local development.')
+      console.log('📧 Booking email would be sent to:', adopterEmail)
+      
+      // In development, just return success without sending email
+      if (isLocalDevelopment) {
+        return { success: true, message: 'Email would be sent (Postmark not configured)' }
+      } else {
+        throw new functions.https.HttpsError('failed-precondition', 'Email service not configured')
+      }
     }
 
     // Generate email content based on type
