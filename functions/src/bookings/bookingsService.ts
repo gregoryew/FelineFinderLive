@@ -180,6 +180,17 @@ export const createBooking = functions.https.onCall(async (data, context) => {
       .collection('bookings')
       .add(newBooking)
 
+    // Create or update adopter in users collection
+    // Use a stable ID based on email to avoid duplicates
+    const adopterRef = admin.firestore().collection('users').doc(bookingData.adopterEmail)
+    await adopterRef.set({
+      email: bookingData.adopterEmail,
+      name: bookingData.adopter,
+      lastBookingAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true })
+
     console.log(`Created booking ${bookingRef.id} for org ${orgId}`)
 
     return {
@@ -268,6 +279,36 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
       updatedAt: FieldValue.serverTimestamp(),
       auditTrail
     })
+
+    // Update adopter in users collection if adopter email changed
+    if (updates.adopterEmail && updates.adopterEmail !== existingBooking.adopterEmail) {
+      const oldAdopterRef = admin.firestore().collection('users').doc(existingBooking.adopterEmail)
+      const newAdopterRef = admin.firestore().collection('users').doc(updates.adopterEmail as string)
+      
+      // Update old email record
+      await oldAdopterRef.update({
+        updatedAt: FieldValue.serverTimestamp()
+      })
+      
+      // Update or create new email record
+      await newAdopterRef.set({
+        email: updates.adopterEmail,
+        name: updates.adopter || existingBooking.adopter,
+        lastBookingAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true })
+    } else if (updates.adopter) {
+      // Just update the adopter name in users collection
+      const adopterEmail = updates.adopterEmail || existingBooking.adopterEmail
+      if (adopterEmail) {
+        const adopterRef = admin.firestore().collection('users').doc(adopterEmail)
+        await adopterRef.update({
+          name: updates.adopter,
+          updatedAt: FieldValue.serverTimestamp()
+        })
+      }
+    }
 
     console.log(`Updated booking ${bookingId}`)
 
