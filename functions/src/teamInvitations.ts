@@ -377,10 +377,8 @@ export const verifyTeamMemberInvitation = functions.https.onRequest(async (req, 
       invitedUsers: updatedInvitedUsers
     })
 
-    // Create shelter_people document for the invited team member
-    // This will be created when the user signs in with Google and their Firebase Auth user is created
-    // The document will be created during the OAuth callback or registration flow
-    // For now, we just mark the invitation as verified - the user document will be created when they sign in
+    // Add user to the root users collection (will be created when they sign in, but store invitation details now)
+    // Note: This will be created when the user signs in with Google during OAuth/registration
 
     // Generate a setup token for onboarding access
     const setupToken = jwt.sign(

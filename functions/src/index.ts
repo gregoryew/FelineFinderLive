@@ -1985,6 +1985,17 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
 
         await admin.firestore().collection('shelter_people').doc(userId).set(userData)
 
+        // Add user to the root users collection
+        await admin.firestore().collection('users').doc(userId).set({
+          id: userId,
+          name: decodedToken.name || '',
+          email: decodedToken.email || '',
+          role: userRole,
+          orgId: orgId,
+          status: userRole === 'pending_verification' ? 'Pending Verification' : 'New',
+          addedAt: new Date().toISOString()
+        })
+
         // Add user to organization's users array
         await admin.firestore().collection('organizations').doc(orgId).update({
           users: FieldValue.arrayUnion({
@@ -3572,28 +3583,32 @@ export const assignVolunteerToBooking = functions.https.onCall(async (data, cont
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
 
-    // Get organization to look up team member details
-    const orgDoc = await admin.firestore().collection('organizations').doc(booking?.orgId).get()
-    const orgData = orgDoc.data()
-    const teamMember = orgData?.users?.find((u: any) => u.id === volunteerId)
-    const teamMemberEmail = teamMember?.email || volunteerEmail || ''
+    // Get team member details from the root users collection
+    const teamMemberDoc = await admin.firestore().collection('users').doc(volunteerId).get()
+    if (!teamMemberDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Team member not found in users collection')
+    }
+    
+    const teamMemberData = teamMemberDoc.data()
+    const teamMemberName = volunteerName || teamMemberData?.name || 'Unknown'
+    const teamMemberEmail = teamMemberData?.email || volunteerEmail || ''
 
     // Update booking with volunteer assignment
     await bookingRef.update({
-      volunteer: volunteerName || booking.volunteer,
-      volunteerId: volunteerId || booking.volunteerId,
-      teamMemberId: volunteerId, // Store for lookup in organization's users array
+      volunteer: teamMemberName,
+      volunteerId: volunteerId,
+      teamMemberId: volunteerId, // Store for lookup in the users collection
       updatedAt: FieldValue.serverTimestamp(),
       auditTrail: admin.firestore.FieldValue.arrayUnion({
         fieldName: 'volunteer',
         from: booking.volunteer || '',
-        to: volunteerName || booking.volunteer,
+        to: teamMemberName,
         createdAt: FieldValue.serverTimestamp(),
         changedBy: userId
       })
     })
 
-    console.log(`Assigned volunteer ${volunteerName} to booking ${bookingId}`)
+    console.log(`Assigned team member ${teamMemberName} (${teamMemberEmail}) to booking ${bookingId}`)
 
     return { success: true, bookingId }
   } catch (error: any) {
