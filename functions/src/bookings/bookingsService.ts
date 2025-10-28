@@ -68,7 +68,7 @@ export const getBookings = functions.https.onCall(async (data, context) => {
 
     // Get user's organization
     const userDoc = await admin.firestore()
-      .collection('shelter_people')
+      .collection('team')
       .doc(userId)
       .get()
 
@@ -131,7 +131,7 @@ export const createBooking = functions.https.onCall(async (data, context) => {
 
     // Get user's organization
     const userDoc = await admin.firestore()
-      .collection('shelter_people')
+      .collection('team')
       .doc(userId)
       .get()
 
@@ -245,7 +245,7 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
 
     // Verify user has access to this booking's organization
     const userDoc = await admin.firestore()
-      .collection('shelter_people')
+      .collection('team')
       .doc(userId)
       .get()
 
@@ -354,7 +354,7 @@ export const updateBookingNotes = functions.https.onCall(async (data, context) =
 
     // Verify user has access to this booking's organization
     const userDoc = await admin.firestore()
-      .collection('shelter_people')
+      .collection('team')
       .doc(userId)
       .get()
 
@@ -425,7 +425,7 @@ export const deleteBooking = functions.https.onCall(async (data, context) => {
 
     // Verify user has access to this booking's organization
     const userDoc = await admin.firestore()
-      .collection('shelter_people')
+      .collection('team')
       .doc(userId)
       .get()
 

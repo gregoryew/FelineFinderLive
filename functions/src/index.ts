@@ -771,8 +771,8 @@ export const saveOnboardingStep = functions.https.onCall(async (data, context) =
       userId = context.auth.uid
       console.log('Saving onboarding step (authenticated):', { step, stepData, userId, hasSetupToken: !!setupToken })
 
-      // First try to get orgId from shelter_people document
-      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      // First try to get orgId from team document
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       const userData = userDoc.data()
       orgId = userData?.orgId
     }
@@ -856,7 +856,7 @@ export const saveOnboardingStep = functions.https.onCall(async (data, context) =
       }
       
       // Mark user as having completed onboarding
-      await admin.firestore().collection('shelter_people').doc(userId).set({
+      await admin.firestore().collection('team').doc(userId).set({
         onboardingCompleted: true,
         onboardingCompletedAt: FieldValue.serverTimestamp()
       }, { merge: true })
@@ -892,7 +892,7 @@ export const completeOnboarding = functions.https.onCall(async (data: any, conte
     console.log('Completing onboarding for user:', userId)
 
     // Get user document to find orgId
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
     if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
     }
@@ -914,7 +914,7 @@ export const completeOnboarding = functions.https.onCall(async (data: any, conte
     }, { merge: true })
 
     // Mark user as having completed onboarding
-    await admin.firestore().collection('shelter_people').doc(userId).set({
+    await admin.firestore().collection('team').doc(userId).set({
       onboardingCompleted: true,
       onboardingCompletedAt: FieldValue.serverTimestamp()
     }, { merge: true })
@@ -943,7 +943,7 @@ export const getOnboardingProgress = functions.https.onCall(async (data, context
       userId = context.auth.uid
       console.log('GetOnboardingProgress (authenticated):', { userId, hasSetupToken: !!setupToken, dataOrgId })
       
-      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       if (userDoc.exists) {
         userData = userDoc.data()
         orgId = userData?.orgId
@@ -1077,7 +1077,7 @@ export const checkCalendarConnection = functions.https.onRequest(async (req, res
       const decodedToken = await admin.auth().verifyIdToken(idToken)
       const userId = decodedToken.uid
 
-      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       
       if (!userDoc.exists) {
         res.json({ connected: false })
@@ -1256,13 +1256,13 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
           console.log('Setup flow detected for org:', orgId)
         } else {
           // Regular authenticated user flow
-          const userDoc = await admin.firestore().collection('shelter_people').doc(stateData.userId || state as string).get()
+          const userDoc = await admin.firestore().collection('team').doc(stateData.userId || state as string).get()
           const userData = userDoc.exists ? userDoc.data() : null
           orgId = userData?.orgId || stateData.userId || state as string
         }
       } catch {
         // State is not JSON, treat as simple user ID (legacy flow)
-        const userDoc = await admin.firestore().collection('shelter_people').doc(state as string).get()
+        const userDoc = await admin.firestore().collection('team').doc(state as string).get()
         const userData = userDoc.exists ? userDoc.data() : null
         orgId = userData?.orgId || state as string
       }
@@ -1325,7 +1325,7 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
           
           // Check if this is the first user in the organization
           const existingUsers = await admin.firestore()
-            .collection('shelter_people')
+            .collection('team')
             .where('orgId', '==', orgId)
             .where('verified', '==', true)
             .get()
@@ -1333,8 +1333,8 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
           const isFirstUser = existingUsers.empty
           const role = isFirstUser ? 'admin' : 'user'
           
-          // Create user document in shelter_people collection
-          await admin.firestore().collection('shelter_people').doc(firebaseUser.uid).set({
+          // Create user document in team collection
+          await admin.firestore().collection('team').doc(firebaseUser.uid).set({
             email: userEmail,
             name: userName || userEmail.split('@')[0],
             orgId: orgId,
@@ -1344,7 +1344,7 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
             calendarConnected: true
           })
           
-          console.log('Created shelter_people document:', { userId: firebaseUser.uid, email: userEmail, role, orgId })
+          console.log('Created team document:', { userId: firebaseUser.uid, email: userEmail, role, orgId })
           
           // Generate a custom token for the user to sign in on the frontend
           const customToken = await admin.auth().createCustomToken(firebaseUser.uid)
@@ -1449,10 +1449,10 @@ export const testCalendarConnection = functions.https.onRequest(async (req, res)
       const decodedToken = await admin.auth().verifyIdToken(idToken)
       const userId = decodedToken.uid
 
-      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       
       if (!userDoc.exists) {
-        res.status(404).json({ error: 'User not found in shelter_people collection' })
+        res.status(404).json({ error: 'User not found in team collection' })
         return
       }
 
@@ -1551,10 +1551,10 @@ export const listCalendars = functions.https.onCall(async (data, context) => {
       console.log(`✅ User authenticated: ${userId}`)
       
       // Get user document to find orgId
-      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       if (!userDoc.exists) {
-        console.log(`❌ User document not found in shelter_people: ${userId}`)
-        throw new functions.https.HttpsError('not-found', 'User not found in shelter_people collection')
+        console.log(`❌ User document not found in team: ${userId}`)
+        throw new functions.https.HttpsError('not-found', 'User not found in team collection')
       }
       
       const userData = userDoc.data()
@@ -1652,7 +1652,7 @@ export const saveSelectedCalendar = functions.https.onCall(async (data, context)
       userId = context.auth.uid
       
       // Get user document to find orgId
-      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       if (!userDoc.exists) {
         throw new functions.https.HttpsError('not-found', 'User not found')
       }
@@ -1826,8 +1826,8 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
 
       console.log('Registering user with organization:', { userId, orgId })
 
-      // Check if user already exists in shelter_people collection by OAuth key
-      const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+      // Check if user already exists in team collection by OAuth key
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       
       if (userDoc.exists) {
         const userData = userDoc.data()
@@ -1930,7 +1930,7 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
         } else {
           // No invitation found - check if there's already an admin user in the organization
           const existingAdmins = await admin.firestore()
-            .collection('shelter_people')
+            .collection('team')
             .where('orgId', '==', orgId)
             .where('role', '==', 'admin')
             .where('verified', '==', true)
@@ -1983,7 +1983,7 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
           verified: false
         }
 
-        await admin.firestore().collection('shelter_people').doc(userId).set(userData)
+        await admin.firestore().collection('team').doc(userId).set(userData)
 
         // Add user to organization's users array
         await admin.firestore().collection('organizations').doc(orgId).update({
@@ -2027,13 +2027,13 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
         }
 
       } else {
-        // No OrgID provided - check if user exists in shelter_people
-        console.log('No OrgID provided, checking if user exists in shelter_people')
+        // No OrgID provided - check if user exists in team
+        console.log('No OrgID provided, checking if user exists in team')
         
         if (userDoc.exists) {
           // User exists, they're good to go
           const userData = userDoc.data()
-          console.log('User found in shelter_people without OrgID parameter:', { userId, orgId: userData?.orgId })
+          console.log('User found in team without OrgID parameter:', { userId, orgId: userData?.orgId })
           res.json({ 
             success: true, 
             message: 'User already registered',
@@ -2045,7 +2045,7 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
         }
         
         // User doesn't exist and no OrgID - deny access
-        console.log('User not found in shelter_people and no OrgID provided - denying access')
+        console.log('User not found in team and no OrgID provided - denying access')
         res.status(403).json({ 
           error: 'Access Denied',
           message: 'You must be invited by an organization to access this system.',
@@ -3335,14 +3335,14 @@ export const checkOrganizationState = functions.https.onCall(async (data, contex
     
     console.log('Checking organization state for user:', { userId, userEmail })
 
-    // Check if user exists in shelter_people collection
+    // Check if user exists in team collection
     const userDoc = await admin.firestore()
-      .collection('shelter_people')
+      .collection('team')
       .doc(userId)
       .get()
     
     if (!userDoc.exists) {
-      console.log('User not found in shelter_people collection')
+      console.log('User not found in team collection')
       return { 
         status: 'USER_NOT_IN_SYSTEM',
         message: 'You need to verify your organization or be invited by an administrator',
@@ -3464,9 +3464,9 @@ export const checkUserVerificationStatus = functions.https.onRequest(async (req,
 
       console.log('Checking verification status for email:', email)
 
-      // Look up user in shelter_people collection by email
+      // Look up user in team collection by email
       const userSnapshot = await admin.firestore()
-        .collection('shelter_people')
+        .collection('team')
         .where('email', '==', email)
         .limit(1)
         .get()
@@ -3567,7 +3567,7 @@ export const assignVolunteerToBooking = functions.https.onCall(async (data, cont
     const booking = bookingDoc.data()
 
     // Verify user has access
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
     if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
@@ -3631,7 +3631,7 @@ export const rescheduleBooking = functions.https.onCall(async (data, context) =>
     const booking = bookingDoc.data()
 
     // Verify user has access
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
     if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
@@ -3687,7 +3687,7 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
     const booking = bookingDoc.data()
 
     // Verify user has access
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
     if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
@@ -3887,7 +3887,7 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
     const booking = bookingDoc.data()
 
     // Get user and organization
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
     if (!userDoc.exists || userDoc.data()?.orgId !== booking?.orgId) {
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }

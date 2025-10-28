@@ -68,7 +68,7 @@ async function createVerifiedTestOrg() {
     
     // Create admin user document (Auth will be created on first sign-in)
     const userId = 'test-admin-user-id'; // Placeholder - will be replaced by Firebase Auth UID
-    const userRef = db.collection('shelter_people').doc(userId);
+    const userRef = db.collection('team').doc(userId);
     
     console.log('👤 Creating admin user document...');
     await userRef.set({

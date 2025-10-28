@@ -112,7 +112,7 @@ Provides TypeScript-safe wrappers around the backend functions with:
 
 - All functions require authentication via Firebase Auth
 - Users can only access bookings for their own organization
-- Organization ID is automatically determined from the user's `shelter_people` record
+- Organization ID is automatically determined from the user's `team` record
 - All changes are tracked in an audit trail with user ID and timestamp
 
 ## Usage
@@ -221,7 +221,7 @@ Each status change is tracked in the audit trail.
 ## Troubleshooting
 
 ### "User not found" error
-- Ensure the user exists in the `shelter_people` collection
+- Ensure the user exists in the `team` collection
 - Verify the user has an `orgId` field
 
 ### "Permission denied" error

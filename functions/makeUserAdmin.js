@@ -23,7 +23,7 @@ async function makeUserAdmin() {
   
   try {
     // Find user by email
-    const usersSnapshot = await db.collection('shelter_people')
+    const usersSnapshot = await db.collection('team')
       .where('email', '==', email)
       .limit(1)
       .get();

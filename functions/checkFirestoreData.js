@@ -15,9 +15,9 @@ async function checkData() {
   try {
     console.log('🔍 Checking Firestore data...\n')
     
-    // Check shelter_people
+    // Check team
     console.log('📋 SHELTER_PEOPLE:')
-    const peopleSnapshot = await db.collection('shelter_people').get()
+    const peopleSnapshot = await db.collection('team').get()
     if (peopleSnapshot.empty) {
       console.log('  ⚠️  No documents found')
     } else {

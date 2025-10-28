@@ -35,26 +35,26 @@ async function clearOrganizations() {
       console.log('✅ No organizations found to delete.');
     }
 
-    // Clear shelter_people
-    console.log('🔍 Fetching all shelter_people...');
-    const peopleSnapshot = await db.collection('shelter_people').get();
+    // Clear team
+    console.log('🔍 Fetching all team...');
+    const peopleSnapshot = await db.collection('team').get();
     
     if (!peopleSnapshot.empty) {
-      console.log(`📊 Found ${peopleSnapshot.size} shelter_people document(s) to delete.`);
+      console.log(`📊 Found ${peopleSnapshot.size} team document(s) to delete.`);
       
       const peopleBatch = db.batch();
       let peopleCount = 0;
       
       peopleSnapshot.forEach((doc) => {
-        console.log(`  - Deleting shelter_people: ${doc.id}`);
+        console.log(`  - Deleting team: ${doc.id}`);
         peopleBatch.delete(doc.ref);
         peopleCount++;
       });
       
       await peopleBatch.commit();
-      console.log(`✅ Successfully deleted ${peopleCount} shelter_people document(s).`);
+      console.log(`✅ Successfully deleted ${peopleCount} team document(s).`);
     } else {
-      console.log('✅ No shelter_people found to delete.');
+      console.log('✅ No team found to delete.');
     }
 
     process.exit(0);

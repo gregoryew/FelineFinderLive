@@ -91,10 +91,10 @@ async function createTestAdmin() {
       console.log('✅ Organization already exists');
     }
     
-    // Create user in shelter_people collection
+    // Create user in team collection
     // Note: We'll use email as the document ID for now since we can't create Auth users in emulator via script
     const userId = email.replace(/[@.]/g, '_'); // Convert email to safe document ID
-    const userRef = db.collection('shelter_people').doc(userId);
+    const userRef = db.collection('team').doc(userId);
     
     console.log('👤 Creating user document...');
     await userRef.set({

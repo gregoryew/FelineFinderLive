@@ -24,7 +24,7 @@ export const sendTeamMemberInvitations = functions.https.onCall(async (data, con
     console.log('Sending team member invitations:', { userId, selectedUserIds })
 
     // Get the admin's user document to find their organization
-    const userDoc = await admin.firestore().collection('shelter_people').doc(userId).get()
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
     if (!userDoc.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found')
     }

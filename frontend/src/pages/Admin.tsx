@@ -51,7 +51,7 @@ const Admin: React.FC = () => {
       }
       
       // Fallback to Firestore check
-      const userDoc = doc(db, 'shelter_people', user.uid)
+      const userDoc = doc(db, 'team', user.uid)
       
       const checkUserRole = async (retryCount = 0) => {
         try {
@@ -90,7 +90,7 @@ const Admin: React.FC = () => {
     if (!user?.uid) return
     
     try {
-      const userDoc = doc(db, 'shelter_people', user.uid)
+      const userDoc = doc(db, 'team', user.uid)
       await setDoc(userDoc, { 
         role: role,
         email: user.email,

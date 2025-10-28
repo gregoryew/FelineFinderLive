@@ -13,7 +13,7 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-const orgId = '1103'; // Organization ID as a string to match shelter_people and organizations collections
+const orgId = '1103'; // Organization ID as a string to match team and organizations collections
 
 // Mock data for bookings
 const bookings = [

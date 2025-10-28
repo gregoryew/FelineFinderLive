@@ -24,7 +24,7 @@ const WorkSchedule: React.FC = () => {
   const [userName, setUserName] = useState<string>('')
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  // Load work schedule data from user's shelter_people document
+  // Load work schedule data from user's team document
   useEffect(() => {
     const loadWorkSchedule = async () => {
       if (!user) return
