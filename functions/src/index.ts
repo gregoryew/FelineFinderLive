@@ -323,8 +323,8 @@ export const searchCatsByOrgId = functions.https.onRequest(async (req, res) => {
         return
       }
 
-      // Get organization ID from user data
-      const userDoc = await admin.firestore().collection('users').doc(userId).get()
+      // Get organization ID from team data
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       if (!userDoc.exists) {
         res.status(404).json({ error: 'User not found' })
         return
@@ -440,7 +440,7 @@ export const sendOrganizationInvite = functions.https.onCall(async (data: any, c
     }
 
     // Verify the inviter is an admin of the organization
-    const userDoc = await admin.firestore().collection('users').doc(userId).get()
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
     if (!userDoc.exists) {
       await logSecurityEvent('invite_user_not_found', userId, {
         reason: 'user_document_missing'
@@ -670,7 +670,7 @@ export const getSecurityMetrics = functions.https.onCall(async (data: any, conte
     }
 
     // Check if user is admin
-    const userDoc = await admin.firestore().collection('users').doc(context?.auth?.uid).get()
+    const userDoc = await admin.firestore().collection('team').doc(context?.auth?.uid).get()
     if (!userDoc.exists || !['admin', 'founder'].includes(userDoc.data()?.role)) {
       await logSecurityEvent('unauthorized_security_access', context?.auth?.uid || 'unknown', {
         reason: 'insufficient_permissions',
@@ -726,7 +726,7 @@ export const checkUserData = functions.https.onCall(async (data: any, context: a
       throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
     }
 
-    const userDoc = await admin.firestore().collection('users').doc(context?.auth?.uid).get()
+    const userDoc = await admin.firestore().collection('team').doc(context?.auth?.uid).get()
     
     if (!userDoc.exists) {
       return {
@@ -1402,8 +1402,8 @@ export const disconnectCalendar = functions.https.onRequest(async (req, res) => 
       const decodedToken = await admin.auth().verifyIdToken(idToken)
       const userId = decodedToken.uid
       
-      // Get user document to find organization ID
-      const userDoc = await admin.firestore().collection('users').doc(userId).get()
+      // Get team member document to find organization ID
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       
       if (!userDoc.exists) {
         res.status(404).json({ error: 'User not found' })
@@ -1907,7 +1907,7 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
 
         try {
         // Check if this is the very first user in the system
-        const usersSnapshot = await admin.firestore().collection('users').limit(1).get()
+        const usersSnapshot = await admin.firestore().collection('team').limit(1).get()
         const isFirstUserInSystem = usersSnapshot.empty
         
         // Check if organization document exists in Firestore
@@ -2201,8 +2201,8 @@ export const sendOrganizationVerificationEmail = functions.https.onRequest(async
       const decodedToken = await admin.auth().verifyIdToken(idToken)
       const userId = decodedToken.uid
 
-      // Get user data to find organization
-      const userDoc = await admin.firestore().collection('users').doc(userId).get()
+      // Get team member data to find organization
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       if (!userDoc.exists) {
         res.status(404).json({ error: 'User not found' })
         return
@@ -2475,8 +2475,8 @@ export const confirmAdminRole = functions.https.onRequest(async (req, res) => {
 
       const { isAdmin } = req.body
 
-      // Get user document to find organization ID
-      const userDoc = await admin.firestore().collection('users').doc(userId).get()
+      // Get team member document to find organization ID
+      const userDoc = await admin.firestore().collection('team').doc(userId).get()
       const userData = userDoc.data()
       const orgId = userData?.OrgID
 
@@ -2493,7 +2493,7 @@ export const confirmAdminRole = functions.https.onRequest(async (req, res) => {
 
       if (isAdmin) {
         // User confirmed as admin - update their role
-        await admin.firestore().collection('users').doc(userId).update({
+        await admin.firestore().collection('team').doc(userId).update({
           role: 'admin',
           adminConfirmedAt: FieldValue.serverTimestamp()
         })
@@ -3697,10 +3697,10 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
       throw new functions.https.HttpsError('failed-precondition', `Booking has no valid adopterId. Received: ${booking?.adopterId}`)
     }
     
-    const adopterDoc = await admin.firestore().collection('users').doc(booking.adopterId).get()
+    const adopterDoc = await admin.firestore().collection('adopters').doc(booking.adopterId).get()
     if (!adopterDoc.exists) {
-      console.error(`Adopter not found in users collection for adopterId: ${booking.adopterId}`)
-      throw new functions.https.HttpsError('not-found', 'Adopter not found in users collection')
+      console.error(`Adopter not found in adopters collection for adopterId: ${booking.adopterId}`)
+      throw new functions.https.HttpsError('not-found', 'Adopter not found in adopters collection')
     }
     
     const adopterData = adopterDoc.data()
@@ -3943,7 +3943,7 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
       // Get adopter email from users collection
       let adopterEmail = ''
       if (booking.adopterId) {
-        const adopterDoc = await admin.firestore().collection('users').doc(booking.adopterId).get()
+        const adopterDoc = await admin.firestore().collection('adopters').doc(booking.adopterId).get()
         if (adopterDoc.exists) {
           adopterEmail = adopterDoc.data()?.email || ''
         }

@@ -5,7 +5,7 @@ export interface Booking {
   id?: string
   calendarId: number
   adopter: string
-  adopterId: string // UUID referencing users collection
+  adopterId: string // UUID referencing adopters collection
   cat: string
   catId: number
   startTs: Date | Timestamp

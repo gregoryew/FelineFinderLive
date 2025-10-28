@@ -19,7 +19,7 @@ export const getOrganizationEmailConfig = functions.https.onCall(async (data: an
     }
 
     // Check if user belongs to this organization
-    const userDoc = await admin.firestore().collection('users').doc(context?.auth?.uid).get()
+    const userDoc = await admin.firestore().collection('adopters').doc(context?.auth?.uid).get()
     const userData = userDoc.data()
     
     if (userData?.organizationId !== organizationId && userData?.role !== 'admin') {
@@ -88,7 +88,7 @@ export const updateOrganizationEmailConfig = functions.https.onCall(async (data:
     }
 
     // Check if user has admin privileges for this organization
-    const userDoc = await admin.firestore().collection('users').doc(context?.auth?.uid).get()
+    const userDoc = await admin.firestore().collection('adopters').doc(context?.auth?.uid).get()
     const userData = userDoc.data()
     
     if (userData?.organizationId !== organizationId || userData?.role !== 'admin') {
@@ -166,7 +166,7 @@ export const testOrganizationEmailConfig = functions.https.onCall(async (data: a
     }
 
     // Check if user has admin privileges for this organization
-    const userDoc = await admin.firestore().collection('users').doc(context?.auth?.uid).get()
+    const userDoc = await admin.firestore().collection('adopters').doc(context?.auth?.uid).get()
     const userData = userDoc.data()
     
     if (userData?.organizationId !== organizationId || userData?.role !== 'admin') {

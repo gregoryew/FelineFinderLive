@@ -7,7 +7,7 @@ export interface Booking {
   id?: string
   calendarId: number
   adopter: string
-  adopterId: string // UUID referencing users collection
+  adopterId: string // UUID referencing adopters collection
   cat: string
   catId: number
   startTs: admin.firestore.Timestamp
@@ -177,8 +177,8 @@ export const createBooking = functions.https.onCall(async (data, context) => {
       .collection('bookings')
       .add(newBooking)
 
-    // Ensure adopter exists in users collection using adopterId as document ID
-    const adopterRef = admin.firestore().collection('users').doc(bookingData.adopterId)
+    // Ensure adopter exists in adopters collection using adopterId as document ID
+    const adopterRef = admin.firestore().collection('adopters').doc(bookingData.adopterId)
     const adopterData: any = {
       id: bookingData.adopterId,
       name: bookingData.adopter,
@@ -289,11 +289,11 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
       auditTrail
     })
 
-    // Update adopter in users collection if adopter name, ID, or email changed
+    // Update adopter in adopters collection if adopter name, ID, or email changed
     if (updates.adopterId || updates.adopter) {
       const adopterId = updates.adopterId || existingBooking.adopterId
       if (adopterId) {
-        const adopterRef = admin.firestore().collection('users').doc(adopterId)
+        const adopterRef = admin.firestore().collection('adopters').doc(adopterId)
         const updateData: any = {
           updatedAt: FieldValue.serverTimestamp()
         }
