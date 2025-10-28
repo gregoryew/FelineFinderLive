@@ -124,6 +124,10 @@ export const createBooking = functions.https.onCall(async (data, context) => {
     if (!bookingData.adopter || !bookingData.adopterId || !bookingData.cat || !bookingData.startTs || !bookingData.endTs) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required booking fields (adopter, adopterId, cat, startTs, endTs)')
     }
+    
+    // Check if email is provided in booking data
+    const bookingWithEmail = bookingData as any
+    const adopterEmail = bookingWithEmail.adopterEmail || bookingWithEmail.email
 
     // Get user's organization
     const userDoc = await admin.firestore()
@@ -175,13 +179,26 @@ export const createBooking = functions.https.onCall(async (data, context) => {
 
     // Ensure adopter exists in users collection using adopterId as document ID
     const adopterRef = admin.firestore().collection('users').doc(bookingData.adopterId)
-    await adopterRef.set({
+    const adopterData: any = {
       id: bookingData.adopterId,
       name: bookingData.adopter,
       lastBookingAt: FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true })
+    }
+    
+    // Add email if provided
+    if (adopterEmail) {
+      adopterData.email = adopterEmail
+    }
+    
+    // Only set createdAt if the document doesn't exist yet
+    const existingDoc = await adopterRef.get()
+    if (!existingDoc.exists) {
+      adopterData.createdAt = FieldValue.serverTimestamp()
+      await adopterRef.set(adopterData)
+    } else {
+      await adopterRef.set(adopterData, { merge: true })
+    }
 
     console.log(`Created booking ${bookingRef.id} for org ${orgId}`)
 
@@ -272,7 +289,7 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
       auditTrail
     })
 
-    // Update adopter in users collection if adopter name or ID changed
+    // Update adopter in users collection if adopter name, ID, or email changed
     if (updates.adopterId || updates.adopter) {
       const adopterId = updates.adopterId || existingBooking.adopterId
       if (adopterId) {
@@ -284,6 +301,12 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
         if (updates.adopter) {
           updateData.name = updates.adopter
           updateData.lastBookingAt = FieldValue.serverTimestamp()
+        }
+        
+        // Check if email is being updated
+        const updatesWithEmail = updates as any
+        if (updatesWithEmail.email || updatesWithEmail.adopterEmail) {
+          updateData.email = updatesWithEmail.email || updatesWithEmail.adopterEmail
         }
         
         await adopterRef.set(updateData, { merge: true })
