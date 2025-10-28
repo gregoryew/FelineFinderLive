@@ -942,8 +942,8 @@ const OnBoarding: React.FC = () => {
           }
 
           return (
-            <div key={step.id} className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="px-6 py-4 flex items-center justify-between">
+            <div key={step.id} className={`bg-white shadow rounded-lg overflow-hidden ${isCurrent ? 'ring-2 ring-feline-500' : ''}`}>
+              <div className={`px-6 py-4 flex items-center justify-between ${isCurrent ? 'bg-feline-50' : ''}`}>
                 <div className="flex-1 flex items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 ${
                     isCompleted ? 'bg-green-100 text-green-600' : 
