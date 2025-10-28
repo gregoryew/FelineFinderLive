@@ -3693,18 +3693,20 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
     }
 
     // Get adopter email from users collection using adopterId
-    if (!booking?.adopterId) {
-      throw new functions.https.HttpsError('failed-precondition', 'Booking has no adopterId')
+    if (!booking?.adopterId || typeof booking.adopterId !== 'string' || booking.adopterId.trim() === '') {
+      throw new functions.https.HttpsError('failed-precondition', `Booking has no valid adopterId. Received: ${booking?.adopterId}`)
     }
     
     const adopterDoc = await admin.firestore().collection('users').doc(booking.adopterId).get()
     if (!adopterDoc.exists) {
+      console.error(`Adopter not found in users collection for adopterId: ${booking.adopterId}`)
       throw new functions.https.HttpsError('not-found', 'Adopter not found in users collection')
     }
     
     const adopterData = adopterDoc.data()
     const adopterEmail = adopterData?.email
     if (!adopterEmail) {
+      console.error(`Adopter has no email address for adopterId: ${booking.adopterId}`)
       throw new functions.https.HttpsError('failed-precondition', 'Adopter has no email address')
     }
 

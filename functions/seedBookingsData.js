@@ -3,7 +3,7 @@ const path = require('path');
 const serviceAccount = require('./serviceAccountKey.json');
 
 // Configure Firestore to use emulator BEFORE initializing
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+// process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080'; // Commented out to use production
 
 // Initialize Firebase Admin
 admin.initializeApp({
@@ -20,7 +20,7 @@ const bookings = [
   // pending-shelter-setup status
   {
     adopter: 'John Doe',
-    adopterId: 101,
+    adopterId: 'adopter-101',
     cat: 'Fluffy',
     catId: 201,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T10:00:00Z')),
@@ -40,7 +40,7 @@ const bookings = [
   },
   {
     adopter: 'Jane Smith',
-    adopterId: 102,
+    adopterId: 'adopter-102',
     cat: 'Whiskers',
     catId: 202,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-28T14:00:00Z')),
@@ -60,7 +60,7 @@ const bookings = [
   },
   {
     adopter: 'Bob Johnson',
-    adopterId: 103,
+    adopterId: 'adopter-103',
     cat: 'Luna',
     catId: 203,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-29T16:00:00Z')),
@@ -82,7 +82,7 @@ const bookings = [
   // pending-confirmation status
   {
     adopter: 'Sarah Williams',
-    adopterId: 104,
+    adopterId: 'adopter-104',
     cat: 'Mittens',
     catId: 204,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T13:00:00Z')),
@@ -102,7 +102,7 @@ const bookings = [
   },
   {
     adopter: 'Mike Brown',
-    adopterId: 105,
+    adopterId: 'adopter-105',
     cat: 'Shadow',
     catId: 205,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-28T10:00:00Z')),
@@ -124,7 +124,7 @@ const bookings = [
   // confirmed status
   {
     adopter: 'Emily Davis',
-    adopterId: 106,
+    adopterId: 'adopter-106',
     cat: 'Max',
     catId: 206,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T15:00:00Z')),
@@ -144,7 +144,7 @@ const bookings = [
   },
   {
     adopter: 'David Wilson',
-    adopterId: 107,
+    adopterId: 'adopter-107',
     cat: 'Chloe',
     catId: 207,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-28T11:00:00Z')),
@@ -166,7 +166,7 @@ const bookings = [
   // volunteer-assigned status
   {
     adopter: 'Lisa Anderson',
-    adopterId: 108,
+    adopterId: 'adopter-108',
     cat: 'Buddy',
     catId: 208,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-27T11:00:00Z')),
@@ -186,7 +186,7 @@ const bookings = [
   },
   {
     adopter: 'Tom Taylor',
-    adopterId: 109,
+    adopterId: 'adopter-109',
     cat: 'Bella',
     catId: 209,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-29T10:00:00Z')),
@@ -208,7 +208,7 @@ const bookings = [
   // in-progress status
   {
     adopter: 'Nancy Martinez',
-    adopterId: 110,
+    adopterId: 'adopter-110',
     cat: 'Simba',
     catId: 210,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-26T09:00:00Z')),
@@ -230,7 +230,7 @@ const bookings = [
   // completed status
   {
     adopter: 'Robert Lee',
-    adopterId: 111,
+    adopterId: 'adopter-111',
     cat: 'Tiger',
     catId: 211,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-25T14:00:00Z')),
@@ -250,7 +250,7 @@ const bookings = [
   },
   {
     adopter: 'Patricia Garcia',
-    adopterId: 112,
+    adopterId: 'adopter-112',
     cat: 'Oreo',
     catId: 213,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-24T16:00:00Z')),
@@ -272,7 +272,7 @@ const bookings = [
   // adopted status
   {
     adopter: 'James Moore',
-    adopterId: 113,
+    adopterId: 'adopter-113',
     cat: 'Tux',
     catId: 214,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-23T13:00:00Z')),
@@ -294,7 +294,7 @@ const bookings = [
   // cancelled status
   {
     adopter: 'Jennifer White',
-    adopterId: 114,
+    adopterId: 'adopter-114',
     cat: 'Lucky',
     catId: 215,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-22T10:00:00Z')),
@@ -314,7 +314,7 @@ const bookings = [
   },
   {
     adopter: 'Mark Harris',
-    adopterId: 115,
+    adopterId: 'adopter-115',
     cat: 'Princess',
     catId: 216,
     startTs: admin.firestore.Timestamp.fromDate(new Date('2025-10-21T15:00:00Z')),
