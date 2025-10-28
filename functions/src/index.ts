@@ -3893,6 +3893,13 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
       throw new functions.https.HttpsError('failed-precondition', 'Calendar not connected for this organization')
     }
 
+    // Get volunteer/team member email if assigned
+    let volunteerEmail = ''
+    if (booking?.teamMemberId) {
+      const teamMember = orgData?.users?.find((u: any) => u.id === booking.teamMemberId)
+      volunteerEmail = teamMember?.email || ''
+    }
+
     // Set up OAuth2 client
     const config = getConfig()
     const redirectUri = isLocalDevelopment 
@@ -3920,10 +3927,18 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
       })
       console.log(`Deleted calendar event ${booking.calendarEventId} for booking ${bookingId}`)
     } else {
-      // Create or update calendar event
+      // Create or update calendar event with attendees (adopter and volunteer)
+      const attendees = []
+      if (booking.adopterEmail) {
+        attendees.push({ email: booking.adopterEmail })
+      }
+      if (volunteerEmail) {
+        attendees.push({ email: volunteerEmail })
+      }
+
       const event = {
         summary: `${booking.cat} Adoption - ${booking.adopter}`,
-        description: `Feline Finder Adoption Meeting\n\nCat: ${booking.cat}\nAdopter: ${booking.adopter}\nStatus: ${booking.status}`,
+        description: `Feline Finder Adoption Meeting\n\nCat: ${booking.cat}\nAdopter: ${booking.adopter}\nVolunteer: ${booking.volunteer || 'TBD'}\nStatus: ${booking.status}`,
         start: {
           dateTime: booking.startTs?.toDate().toISOString(),
           timeZone: booking.startTimeZone || 'America/New_York'
@@ -3932,7 +3947,7 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
           dateTime: booking.endTs?.toDate().toISOString(),
           timeZone: booking.endTimeZone || 'America/New_York'
         },
-        attendees: booking.adopterEmail ? [{ email: booking.adopterEmail }] : [],
+        attendees: attendees,
         location: 'To be determined',
         status: 'confirmed'
       }
