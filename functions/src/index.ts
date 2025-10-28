@@ -1985,17 +1985,6 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
 
         await admin.firestore().collection('shelter_people').doc(userId).set(userData)
 
-        // Add user to the root users collection
-        await admin.firestore().collection('users').doc(userId).set({
-          id: userId,
-          name: decodedToken.name || '',
-          email: decodedToken.email || '',
-          role: userRole,
-          orgId: orgId,
-          status: userRole === 'pending_verification' ? 'Pending Verification' : 'New',
-          addedAt: new Date().toISOString()
-        })
-
         // Add user to organization's users array
         await admin.firestore().collection('organizations').doc(orgId).update({
           users: FieldValue.arrayUnion({
@@ -3583,21 +3572,19 @@ export const assignVolunteerToBooking = functions.https.onCall(async (data, cont
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
 
-    // Get team member details from the root users collection
-    const teamMemberDoc = await admin.firestore().collection('users').doc(volunteerId).get()
-    if (!teamMemberDoc.exists) {
-      throw new functions.https.HttpsError('not-found', 'Team member not found in users collection')
-    }
+    // Get organization to look up team member email from the users array
+    const orgDoc = await admin.firestore().collection('organizations').doc(booking?.orgId).get()
+    const orgData = orgDoc.data()
+    const teamMember = orgData?.users?.find((u: any) => u.id === volunteerId)
     
-    const teamMemberData = teamMemberDoc.data()
-    const teamMemberName = volunteerName || teamMemberData?.name || 'Unknown'
-    const teamMemberEmail = teamMemberData?.email || volunteerEmail || ''
+    const teamMemberName = volunteerName || teamMember?.name || 'Unknown'
+    const teamMemberEmail = teamMember?.email || volunteerEmail || ''
 
     // Update booking with volunteer assignment
     await bookingRef.update({
       volunteer: teamMemberName,
       volunteerId: volunteerId,
-      teamMemberId: volunteerId, // Store for lookup in the users collection
+      teamMemberId: volunteerId, // Store for lookup in organization's users array
       updatedAt: FieldValue.serverTimestamp(),
       auditTrail: admin.firestore.FieldValue.arrayUnion({
         fieldName: 'volunteer',
