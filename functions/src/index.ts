@@ -3572,12 +3572,17 @@ export const assignVolunteerToBooking = functions.https.onCall(async (data, cont
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
 
+    // Get organization to look up team member details
+    const orgDoc = await admin.firestore().collection('organizations').doc(booking?.orgId).get()
+    const orgData = orgDoc.data()
+    const teamMember = orgData?.users?.find((u: any) => u.id === volunteerId)
+    const teamMemberEmail = teamMember?.email || volunteerEmail || ''
+
     // Update booking with volunteer assignment
     await bookingRef.update({
       volunteer: volunteerName || booking.volunteer,
       volunteerId: volunteerId || booking.volunteerId,
-      volunteerEmail: volunteerEmail || booking.volunteerEmail,
-      status: booking.status === 'pending-confirmation' ? 'volunteer-assigned' : booking.status,
+      teamMemberId: volunteerId, // Store for lookup in organization's users array
       updatedAt: FieldValue.serverTimestamp(),
       auditTrail: admin.firestore.FieldValue.arrayUnion({
         fieldName: 'volunteer',

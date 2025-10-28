@@ -17,6 +17,7 @@ export interface Booking {
   endTimeZone: string
   volunteer: string
   volunteerId?: string
+  teamMemberId?: string // ID to look up in organization's users array
   groupId: number
   shelterId: string
   status: 'pending-shelter-setup' | 'pending-confirmation' | 'confirmed' | 'volunteer-assigned' | 'in-progress' | 'completed' | 'adopted' | 'cancelled'
