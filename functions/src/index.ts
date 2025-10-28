@@ -3692,9 +3692,20 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
 
-    const adopterEmail = booking?.adopterEmail
+    // Get adopter email from users collection using adopterId
+    if (!booking?.adopterId) {
+      throw new functions.https.HttpsError('failed-precondition', 'Booking has no adopterId')
+    }
+    
+    const adopterDoc = await admin.firestore().collection('users').doc(booking.adopterId).get()
+    if (!adopterDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Adopter not found in users collection')
+    }
+    
+    const adopterData = adopterDoc.data()
+    const adopterEmail = adopterData?.email
     if (!adopterEmail) {
-      throw new functions.https.HttpsError('failed-precondition', 'Booking has no email address (adopterEmail field is missing)')
+      throw new functions.https.HttpsError('failed-precondition', 'Adopter has no email address')
     }
 
     // Get Postmark API key
@@ -3927,10 +3938,19 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
       })
       console.log(`Deleted calendar event ${booking.calendarEventId} for booking ${bookingId}`)
     } else {
+      // Get adopter email from users collection
+      let adopterEmail = ''
+      if (booking.adopterId) {
+        const adopterDoc = await admin.firestore().collection('users').doc(booking.adopterId).get()
+        if (adopterDoc.exists) {
+          adopterEmail = adopterDoc.data()?.email || ''
+        }
+      }
+      
       // Create or update calendar event with attendees (adopter and volunteer)
       const attendees = []
-      if (booking.adopterEmail) {
-        attendees.push({ email: booking.adopterEmail })
+      if (adopterEmail) {
+        attendees.push({ email: adopterEmail })
       }
       if (volunteerEmail) {
         attendees.push({ email: volunteerEmail })

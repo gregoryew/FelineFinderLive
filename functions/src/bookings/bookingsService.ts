@@ -7,8 +7,7 @@ export interface Booking {
   id?: string
   calendarId: number
   adopter: string
-  adopterId: number
-  adopterEmail: string
+  adopterId: string // UUID referencing users collection
   cat: string
   catId: number
   startTs: admin.firestore.Timestamp
@@ -122,14 +121,8 @@ export const createBooking = functions.https.onCall(async (data, context) => {
     const bookingData = data.booking as Booking
 
     // Validate required fields
-    if (!bookingData.adopter || !bookingData.adopterEmail || !bookingData.cat || !bookingData.startTs || !bookingData.endTs) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required booking fields (adopter, adopterEmail, cat, startTs, endTs)')
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(bookingData.adopterEmail)) {
-      throw new functions.https.HttpsError('invalid-argument', 'Invalid adopterEmail format')
+    if (!bookingData.adopter || !bookingData.adopterId || !bookingData.cat || !bookingData.startTs || !bookingData.endTs) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required booking fields (adopter, adopterId, cat, startTs, endTs)')
     }
 
     // Get user's organization
@@ -180,11 +173,10 @@ export const createBooking = functions.https.onCall(async (data, context) => {
       .collection('bookings')
       .add(newBooking)
 
-    // Create or update adopter in users collection
-    // Use a stable ID based on email to avoid duplicates
-    const adopterRef = admin.firestore().collection('users').doc(bookingData.adopterEmail)
+    // Ensure adopter exists in users collection using adopterId as document ID
+    const adopterRef = admin.firestore().collection('users').doc(bookingData.adopterId)
     await adopterRef.set({
-      email: bookingData.adopterEmail,
+      id: bookingData.adopterId,
       name: bookingData.adopter,
       lastBookingAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
@@ -280,33 +272,21 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
       auditTrail
     })
 
-    // Update adopter in users collection if adopter email changed
-    if (updates.adopterEmail && updates.adopterEmail !== existingBooking.adopterEmail) {
-      const oldAdopterRef = admin.firestore().collection('users').doc(existingBooking.adopterEmail)
-      const newAdopterRef = admin.firestore().collection('users').doc(updates.adopterEmail as string)
-      
-      // Update old email record
-      await oldAdopterRef.update({
-        updatedAt: FieldValue.serverTimestamp()
-      })
-      
-      // Update or create new email record
-      await newAdopterRef.set({
-        email: updates.adopterEmail,
-        name: updates.adopter || existingBooking.adopter,
-        lastBookingAt: FieldValue.serverTimestamp(),
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true })
-    } else if (updates.adopter) {
-      // Just update the adopter name in users collection
-      const adopterEmail = updates.adopterEmail || existingBooking.adopterEmail
-      if (adopterEmail) {
-        const adopterRef = admin.firestore().collection('users').doc(adopterEmail)
-        await adopterRef.update({
-          name: updates.adopter,
+    // Update adopter in users collection if adopter name or ID changed
+    if (updates.adopterId || updates.adopter) {
+      const adopterId = updates.adopterId || existingBooking.adopterId
+      if (adopterId) {
+        const adopterRef = admin.firestore().collection('users').doc(adopterId)
+        const updateData: any = {
           updatedAt: FieldValue.serverTimestamp()
-        })
+        }
+        
+        if (updates.adopter) {
+          updateData.name = updates.adopter
+          updateData.lastBookingAt = FieldValue.serverTimestamp()
+        }
+        
+        await adopterRef.set(updateData, { merge: true })
       }
     }
 

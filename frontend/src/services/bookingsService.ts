@@ -5,7 +5,7 @@ export interface Booking {
   id?: string
   calendarId: number
   adopter: string
-  adopterId: number
+  adopterId: string // UUID referencing users collection
   cat: string
   catId: number
   startTs: Date | Timestamp
@@ -17,7 +17,6 @@ export interface Booking {
   teamMemberId?: string // ID to look up in organization's users array
   groupId: number
   shelterId: number
-  adopterEmail: string
   status: 'pending-shelter-setup' | 'pending-confirmation' | 'confirmed' | 'volunteer-assigned' | 'in-progress' | 'completed' | 'adopted' | 'cancelled'
   notes?: string
   reminders?: Array<{
