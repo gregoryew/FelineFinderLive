@@ -51,17 +51,21 @@ const VolunteerLookAhead: React.FC<VolunteerLookAheadProps> = ({
         }
 
         const userData = userDocSnap.data()
-        const orgId = userData?.orgId
+        // orgId can be stored as string or number, normalize to string for comparison
+        const orgId = userData?.orgId || userData?.OrgID
+        const orgIdString = orgId ? String(orgId) : null
 
-        if (!orgId) {
+        if (!orgIdString) {
+          console.error('VolunteerLookAhead: User has no orgId')
           setVolunteers([])
           return
         }
 
         // Search team members in same organization
+        // Note: orgId is stored as string in team collection
         const teamQuery = query(
           collection(db, 'team'),
-          where('orgId', '==', orgId)
+          where('orgId', '==', orgIdString)
         )
 
         const teamSnapshot = await getDocs(teamQuery)
