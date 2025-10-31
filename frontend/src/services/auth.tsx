@@ -73,21 +73,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       provider.addScope('email')
       provider.addScope('profile')
       
+      // Set custom parameters if needed (helps with some OAuth issues)
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      })
+      
       const result = await signInWithPopup(auth, provider)
       console.log('Sign in successful:', result.user)
       return result
     } catch (error: any) {
       console.error('Sign in error:', error)
+      console.error('Error code:', error.code)
+      console.error('Error message:', error.message)
+      console.error('Error details:', error)
       
-      // Handle specific error cases
+      // Handle specific error cases with more detailed messages
       if (error.code === 'auth/popup-closed-by-user') {
         throw new Error('Sign-in was cancelled. Please try again.')
       } else if (error.code === 'auth/popup-blocked') {
-        throw new Error('Popup was blocked. Please allow popups for this site.')
+        throw new Error('Popup was blocked. Please allow popups for this site and try again.')
       } else if (error.code === 'auth/network-request-failed') {
-        throw new Error('Network error. Please check your connection.')
+        throw new Error('Network error. Please check your connection and try again.')
+      } else if (error.code === 'auth/unauthorized-domain') {
+        throw new Error('This domain is not authorized. Please contact support.')
+      } else if (error.code === 'auth/configuration-not-found') {
+        throw new Error('Google sign-in is not configured. Please contact support.')
+      } else if (error.code === 'auth/operation-not-allowed') {
+        throw new Error('Google sign-in is not enabled. Please contact support.')
       } else {
-        throw new Error(`Sign-in failed: ${error.message}`)
+        throw new Error(`Sign-in failed: ${error.message || error.code || 'Unknown error'}`)
       }
     }
   }
