@@ -67,41 +67,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
   const signInWithGoogle = async () => {
+    console.log('🔵 signInWithGoogle called')
+    console.log('🔵 Auth instance:', auth)
+    console.log('🔵 Auth domain:', auth.config?.apiKey ? 'Configured' : 'Missing API Key')
+    
     try {
       const provider = new GoogleAuthProvider()
+      console.log('🔵 Provider created:', provider)
+      
       // Only add basic scopes for Firebase Auth - calendar scope is handled separately
       provider.addScope('email')
       provider.addScope('profile')
+      console.log('🔵 Scopes added')
       
       // Set custom parameters if needed (helps with some OAuth issues)
       provider.setCustomParameters({
         prompt: 'select_account'
       })
+      console.log('🔵 Custom parameters set')
+      
+      console.log('🔵 About to call signInWithPopup...')
+      console.log('🔵 Popup window should open now...')
       
       const result = await signInWithPopup(auth, provider)
-      console.log('Sign in successful:', result.user)
+      console.log('✅ Sign in successful:', result.user)
+      console.log('✅ User UID:', result.user.uid)
+      console.log('✅ User email:', result.user.email)
       return result
     } catch (error: any) {
-      console.error('Sign in error:', error)
-      console.error('Error code:', error.code)
-      console.error('Error message:', error.message)
-      console.error('Error details:', error)
+      console.error('❌ Sign in error caught:', error)
+      console.error('❌ Error code:', error.code)
+      console.error('❌ Error message:', error.message)
+      console.error('❌ Error details:', JSON.stringify(error, null, 2))
+      console.error('❌ Full error object:', error)
+      
+      // Log additional context
+      if (error.credential) {
+        console.error('❌ Error credential:', error.credential)
+      }
+      if (error.email) {
+        console.error('❌ Error email:', error.email)
+      }
+      if (error.customData) {
+        console.error('❌ Error customData:', error.customData)
+      }
       
       // Handle specific error cases with more detailed messages
       if (error.code === 'auth/popup-closed-by-user') {
+        console.error('❌ User closed the popup window')
         throw new Error('Sign-in was cancelled. Please try again.')
       } else if (error.code === 'auth/popup-blocked') {
+        console.error('❌ Popup was blocked by browser')
         throw new Error('Popup was blocked. Please allow popups for this site and try again.')
       } else if (error.code === 'auth/network-request-failed') {
+        console.error('❌ Network request failed')
         throw new Error('Network error. Please check your connection and try again.')
       } else if (error.code === 'auth/unauthorized-domain') {
+        console.error('❌ Domain not authorized')
         throw new Error('This domain is not authorized. Please contact support.')
       } else if (error.code === 'auth/configuration-not-found') {
+        console.error('❌ OAuth configuration not found')
         throw new Error('Google sign-in is not configured. Please contact support.')
       } else if (error.code === 'auth/operation-not-allowed') {
+        console.error('❌ Operation not allowed')
         throw new Error('Google sign-in is not enabled. Please contact support.')
+      } else if (error.code === 'auth/popup-blocked') {
+        console.error('❌ Popup blocked')
+        throw new Error('Popup was blocked. Try using the redirect method instead.')
       } else {
-        throw new Error(`Sign-in failed: ${error.message || error.code || 'Unknown error'}`)
+        console.error('❌ Unknown error:', error.code || 'No error code')
+        throw new Error(`Sign-in failed: ${error.message || error.code || 'Unknown error'}. Check browser console for details.`)
       }
     }
   }
