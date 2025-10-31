@@ -12,7 +12,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout, signInWithGoogle, loading: authLoading } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false)
+  const [pendingSetup, setPendingSetup] = useState(true)
   const [loadingOnboardingStatus, setLoadingOnboardingStatus] = useState(true)
   const [signInLoading, setSignInLoading] = useState(false)
 
@@ -37,14 +37,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         if (response.ok) {
           const result = await response.json()
           if (result && typeof result === 'object') {
-            const data = result as { onboarding: any; completed: boolean }
-            setIsOnboardingCompleted(data.completed)
+            const data = result as { onboarding: any; completed: boolean; pendingSetup?: boolean }
+            // Use pendingSetup from the response, default to true if not provided
+            setPendingSetup(data.pendingSetup !== undefined ? data.pendingSetup : true)
           }
         }
       } catch (error) {
         console.error('Error checking onboarding status:', error)
-        // Default to allowing navigation if we can't check
-        setIsOnboardingCompleted(true)
+        // Default to pendingSetup = true (disable tabs) if we can't check
+        setPendingSetup(true)
       } finally {
         setLoadingOnboardingStatus(false)
       }
@@ -76,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Work Time', href: '/work-schedule', icon: Clock },
     { name: 'Cat Rules', href: '/cat-rules', icon: Cat },
     { 
-      name: isOnboardingCompleted ? 'Organization Settings' : 'On Boarding', 
+      name: pendingSetup ? 'On Boarding' : 'Org Settings', 
       href: '/onboarding', 
       icon: UserPlus 
     },
@@ -98,8 +99,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 {navigation.map((item) => {
                   const isActive = location.pathname === item.href
+                  // Disable tabs if:
+                  // 1. User is not logged in (except login page)
+                  // 2. pendingSetup is true AND it's one of the tabs that should be disabled
+                  const tabsToDisableWhenPending = ['/bookings', '/work-schedule', '/cat-rules', '/admin']
                   const isDisabled = (!user && item.href !== '/login') || 
-                    (!loadingOnboardingStatus && !isOnboardingCompleted && item.href !== '/' && item.href !== '/onboarding')
+                    (!loadingOnboardingStatus && pendingSetup && tabsToDisableWhenPending.includes(item.href))
                   
                   if (isDisabled) {
                     return (
