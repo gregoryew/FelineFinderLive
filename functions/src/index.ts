@@ -2763,7 +2763,7 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
       const frontendUrl = getFrontendUrl()
       const verificationUrl = `${frontendUrl}/jwt-verification?jwt=${token}`
 
-      // Get recipient email (uses TEST_EMAIL env var / config)
+      // Get recipient email (uses TEST_EMAIL env var / config) - declare once for entire function
       const recipientEmail = getRecipientEmail(orgEmail)
       
       // Log if test mode is enabled
@@ -2860,9 +2860,6 @@ This is a TEST MODE email sent by Feline Finder Organization Portal
 
       // Send verification email using Postmark (production mode only)
       const postmarkClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY || '')
-
-      // Get recipient email (uses TEST_EMAIL env var / config)
-      const recipientEmail = getRecipientEmail(orgEmail)
       
       await postmarkClient.sendEmail({
         From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
