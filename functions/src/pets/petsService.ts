@@ -39,37 +39,23 @@ export const getPets = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'User is not associated with an organization')
     }
 
-    // Get all pets (since catId is the document ID, we need to query differently)
-    // For now, we'll get all pets and filter by bookings that have this orgId
-    // Or we can store orgId on the pet document itself
+    // Get all pets for this organization
+    // Since pets don't have orgId stored directly, we need to verify which pets belong to this org
+    // by checking if the catId exists in the organization's cats from RescueGroups
+    // For now, we'll get all pets and the frontend will match them with RescueGroups cats
     
-    // Option: Get pets from bookings to see which cats are used
-    // For simplicity, let's get all pets and include orgId filtering in frontend
-    // Actually, we should store orgId on pets since one cat might be shared
-    // But for now, let's get all pets and filter by those that have bookings with this orgId
+    // Actually, a simpler approach: get all pets and return them all
+    // The frontend already filters by matching with RescueGroups cats which are org-specific
+    // This ensures pet rules created directly (without bookings) are still returned
     
     const petsSnapshot = await admin.firestore().collection('pets').get()
-    
-    // Get unique catIds from bookings for this org
-    const bookingsSnapshot = await admin.firestore()
-      .collection('bookings')
-      .where('orgId', '==', orgId)
-      .select()
-      .get()
 
-    const orgCatIds = new Set<number>()
-    bookingsSnapshot.docs.forEach(doc => {
-      const booking = doc.data()
-      if (booking.catId) {
-        orgCatIds.add(booking.catId)
-      }
-    })
-
-    // Filter pets to only those used by this organization
+    // Return all pets - the frontend will match them with org-specific cats from RescueGroups
     const pets: Array<Pet & { id: string }> = []
     petsSnapshot.docs.forEach(doc => {
       const petData = doc.data() as Pet
-      if (orgCatIds.has(petData.catId)) {
+      // Only include if it has a valid catId
+      if (petData.catId) {
         pets.push({
           ...petData,
           id: doc.id
