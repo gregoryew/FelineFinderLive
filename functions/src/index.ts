@@ -243,57 +243,18 @@ async function generateMockBookings(orgId: string | number) {
   }
 }
 
-// Get RescueGroups API key (requires authentication)
-export const getRescueGroupsApiKey = functions.https.onRequest(async (req, res) => {
-  return corsHandler(req, res, async () => {
-    if (req.method === 'OPTIONS') {
-      res.status(200).send('')
-      return
-    }
-
-    try {
-      // Handle authentication manually since we're using onRequest instead of onCall
-      const authHeader = req.headers.authorization
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'Unauthorized' })
-        return
-      }
-
-      const idToken = authHeader.split('Bearer ')[1]
-      await admin.auth().verifyIdToken(idToken)
-
-          // Return the API key from Firebase config
-          const config = getConfig()
-          const apiKey = config.rescuegroups?.api_key || 'eqXAy6VJ'
-      
-      res.json({ apiKey })
-    } catch (error) {
-      console.error('Error getting RescueGroups API key:', error)
-      res.status(500).json({ error: 'Failed to get API key' })
-    }
-  })
-})
-
-// Get RescueGroups API key for organization validation (no authentication required)
-export const getRescueGroupsApiKeyPublic = functions.https.onRequest(async (req, res) => {
-  return corsHandler(req, res, async () => {
-    if (req.method === 'OPTIONS') {
-      res.status(200).send('')
-      return
-    }
-
-    try {
-      // Return the API key from Firebase config (no auth required for org validation)
-      const config = getConfig()
-      const apiKey = config.rescuegroups?.api_key || 'eqXAy6VJ'
-      
-      res.json({ apiKey })
-    } catch (error) {
-      console.error('Error getting RescueGroups API key (public):', error)
-      res.status(500).json({ error: 'Failed to get API key' })
-    }
-  })
-})
+// Helper function to get RescueGroups API key securely from environment/config
+// Never exposes the API key to clients - all API calls must be made server-side
+function getRescueGroupsApiKey(): string {
+  const config = getConfig()
+  const apiKey = config.rescuegroups?.api_key
+  
+  if (!apiKey) {
+    throw new Error('RESCUEGROUPS_API_KEY is not configured. Please set it in environment variables or Firebase config.')
+  }
+  
+  return apiKey
+}
 
 // Search cats from RescueGroups API for a specific organization
 export const searchCatsByOrgId = functions.https.onRequest(async (req, res) => {
@@ -338,9 +299,8 @@ export const searchCatsByOrgId = functions.https.onRequest(async (req, res) => {
         return
       }
 
-      // Get API key from config
-      const config = getConfig()
-      const apiKey = config.rescuegroups?.api_key || 'eqXAy6VJ'
+      // Get API key securely (server-side only)
+      const apiKey = getRescueGroupsApiKey()
 
       // Query RescueGroups API for cats in this organization with name search
       const url = 'https://api.rescuegroups.org/v5/public/animals/search/available'
@@ -1716,8 +1676,7 @@ export const saveSelectedCalendar = functions.https.onCall(async (data, context)
 // Validate organization ID against RescueGroups API
 async function validateOrgIdWithRescueGroups(orgId: string): Promise<{ valid: boolean; orgData?: any }> {
   try {
-    const config = getConfig()
-    const apiKey = config.rescuegroups?.api_key || 'eqXAy6VJ'
+    const apiKey = getRescueGroupsApiKey()
 
     const url = 'https://api.rescuegroups.org/v5/public/orgs/search/'
     const requestData = {
@@ -2597,9 +2556,8 @@ export const searchOrganizationsByName = functions.https.onRequest(async (req, r
 
       console.log('Searching organizations with query:', query)
 
-      // Get API key from config
-      const config = getConfig()
-      const apiKey = config.rescuegroups?.api_key || 'eqXAy6VJ'
+      // Get API key securely (server-side only)
+      const apiKey = getRescueGroupsApiKey()
 
       // Build request data for RescueGroups API (v5 format)
       const requestData = {
@@ -3144,9 +3102,8 @@ export const findOrganizationsWithManyCats = functions.https.onRequest(async (re
       const idToken = authHeader.split('Bearer ')[1]
       await admin.auth().verifyIdToken(idToken)
 
-      // Get API key from config
-      const config = getConfig()
-      const apiKey = config.rescuegroups?.api_key || 'eqXAy6VJ'
+      // Get API key securely (server-side only)
+      const apiKey = getRescueGroupsApiKey()
 
       // First, get a list of organizations
       const orgsUrl = 'https://api.rescuegroups.org/v5/public/organizations'
@@ -3275,9 +3232,8 @@ export const fetchRescueGroupsOrganizations = functions.https.onCall(async (para
 
     const { limit = 50, offset = 0, search = '' } = params
 
-    // Get API key from config
-    const config = getConfig()
-    const apiKey = config.rescuegroups?.api_key || 'eqXAy6VJ'
+    // Get API key securely (server-side only)
+    const apiKey = getRescueGroupsApiKey()
 
     // Build request data
     const requestData = {

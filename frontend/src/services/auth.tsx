@@ -9,7 +9,6 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth'
 import { auth } from './firebase'
-import { apiKeyService } from './apiKeyService'
 
 interface AuthContextType {
   user: User | null
@@ -35,11 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     console.log('AuthProvider: Initializing...')
-    
-    // Initialize API key service on app startup
-    apiKeyService.initialize().catch(error => {
-      console.error('Failed to initialize API key service:', error)
-    })
     
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user)
