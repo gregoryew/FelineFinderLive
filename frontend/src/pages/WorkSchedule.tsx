@@ -228,7 +228,9 @@ const WorkSchedule: React.FC = () => {
     const newException: ScheduleException = {
       id: Date.now().toString(),
       date: today,
-      type: 'unavailable'
+      type: 'unavailable',
+      startTime: '09:00',
+      endTime: '17:00'
     }
     setScheduleExceptions([...scheduleExceptions, newException])
   }
@@ -242,15 +244,10 @@ const WorkSchedule: React.FC = () => {
     const updatedExceptions = scheduleExceptions.map(exception => {
       if (exception.id === id) {
         const updated = { ...exception, [field]: value }
-        // If type changes to 'modified', ensure startTime and endTime have defaults
-        if (field === 'type' && value === 'modified') {
+        // When adding a new exception or changing type, set default times if not present
+        if ((field === 'type' || field === 'date') && (!updated.startTime || !updated.endTime)) {
           if (!updated.startTime) updated.startTime = '09:00'
           if (!updated.endTime) updated.endTime = '17:00'
-        }
-        // If type changes away from 'modified', remove times
-        if (field === 'type' && value !== 'modified') {
-          delete updated.startTime
-          delete updated.endTime
         }
         return updated
       }
@@ -260,12 +257,16 @@ const WorkSchedule: React.FC = () => {
   }
 
   const validateException = (exception: ScheduleException): string | null => {
+    // Validate times for all exception types if they are provided
+    if (exception.startTime && exception.endTime) {
+      if (exception.startTime >= exception.endTime) {
+        return 'Start time must be before end time'
+      }
+    }
+    // For 'modified' type, times are required
     if (exception.type === 'modified') {
       if (!exception.startTime || !exception.endTime) {
         return 'Start time and end time are required for modified schedule'
-      }
-      if (exception.startTime >= exception.endTime) {
-        return 'Start time must be before end time'
       }
     }
     return null
@@ -491,32 +492,26 @@ const WorkSchedule: React.FC = () => {
                                 </select>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                {exception.type === 'modified' ? (
-                                  <input
-                                    type="time"
-                                    value={exception.startTime || ''}
-                                    onChange={(e) => updateException(exception.id, 'startTime', e.target.value)}
-                                    className={`border rounded-md px-3 py-1 text-sm ${
-                                      validationError ? 'border-red-300' : 'border-gray-300'
-                                    }`}
-                                  />
-                                ) : (
-                                  <span className="text-sm text-gray-400">—</span>
-                                )}
+                                <input
+                                  type="time"
+                                  value={exception.startTime || ''}
+                                  onChange={(e) => updateException(exception.id, 'startTime', e.target.value)}
+                                  placeholder="HH:MM"
+                                  className={`border rounded-md px-3 py-1 text-sm ${
+                                    validationError ? 'border-red-300' : 'border-gray-300'
+                                  }`}
+                                />
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                {exception.type === 'modified' ? (
-                                  <input
-                                    type="time"
-                                    value={exception.endTime || ''}
-                                    onChange={(e) => updateException(exception.id, 'endTime', e.target.value)}
-                                    className={`border rounded-md px-3 py-1 text-sm ${
-                                      validationError ? 'border-red-300' : 'border-gray-300'
-                                    }`}
-                                  />
-                                ) : (
-                                  <span className="text-sm text-gray-400">—</span>
-                                )}
+                                <input
+                                  type="time"
+                                  value={exception.endTime || ''}
+                                  onChange={(e) => updateException(exception.id, 'endTime', e.target.value)}
+                                  placeholder="HH:MM"
+                                  className={`border rounded-md px-3 py-1 text-sm ${
+                                    validationError ? 'border-red-300' : 'border-gray-300'
+                                  }`}
+                                />
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button

@@ -320,7 +320,7 @@ async function generateMockBookings(orgId: string | number) {
 // Helper function to get RescueGroups API key securely from environment/config
 // Never exposes the API key to clients - all API calls must be made server-side
 function getRescueGroupsApiKey(): string {
-  const config = getConfig()
+      const config = getConfig()
   const apiKey = config.rescuegroups?.api_key
   
   if (!apiKey) {
@@ -539,15 +539,15 @@ export const sendOrganizationInvite = functions.https.onCall(async (data: any, c
 
     const subject = `Invitation to join ${organizationName} - Feline Finder`
     const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">You're invited to join ${organizationName}</h2>
-        <p>${inviterName || userData.displayName} has invited you to join ${organizationName} on Feline Finder.</p>
-        <p>Click the button below to accept your invitation:</p>
-        <a href="${invitationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Accept Invitation</a>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
-          This invitation will expire in 7 days.
-        </p>
-      </div>
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">You're invited to join ${organizationName}</h2>
+                <p>${inviterName || userData.displayName} has invited you to join ${organizationName} on Feline Finder.</p>
+                <p>Click the button below to accept your invitation:</p>
+                <a href="${invitationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Accept Invitation</a>
+                <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+                  This invitation will expire in 7 days.
+                </p>
+              </div>
     `
     
     const textBody = `
@@ -804,7 +804,7 @@ export const saveOnboardingStep = functions.https.onCall(async (data, context) =
 
       // First try to get orgId from team document
       const userDoc = await admin.firestore().collection('team').doc(userId).get()
-      const userData = userDoc.data()
+    const userData = userDoc.data()
       orgId = userData?.orgId
     }
 
@@ -833,7 +833,7 @@ export const saveOnboardingStep = functions.https.onCall(async (data, context) =
       // Step 1 is authentication - just update timestamp for tracking
       console.log('DEBUG: Saving step1 - authentication step, updating timestamp for orgId:', orgId)
       await admin.firestore().collection('organizations').doc(orgId).set({
-        onboardingUpdatedAt: FieldValue.serverTimestamp()
+          onboardingUpdatedAt: FieldValue.serverTimestamp()
       }, { merge: true })
       console.log('DEBUG: Successfully saved step1 authentication timestamp')
     } else if (step === 'step2') {
@@ -994,11 +994,11 @@ export const getOnboardingProgress = functions.https.onCall(async (data, context
       console.log('GetOnboardingProgress (authenticated):', { userId, hasSetupToken: !!setupToken, dataOrgId })
       
       const userDoc = await admin.firestore().collection('team').doc(userId).get()
-      if (userDoc.exists) {
-        userData = userDoc.data()
-        orgId = userData?.orgId
+    if (userDoc.exists) {
+      userData = userDoc.data()
+      orgId = userData?.orgId
         console.log('DEBUG: Found user document:', { userId, orgId, userRole: userData?.role })
-      } else {
+    } else {
         console.log('DEBUG: No user document found for userId:', userId)
       }
     }
@@ -1952,17 +1952,17 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
             }
           }
         } else {
-          console.log('Validating OrgID with RescueGroups:', orgId)
+        console.log('Validating OrgID with RescueGroups:', orgId)
           validation = await validateOrgIdWithRescueGroups(orgId)
-          
-          if (!validation.valid) {
-            console.log('Invalid OrgID - not found in RescueGroups')
-            res.status(403).json({ 
-              error: 'Access Denied',
-              message: 'Invalid organization ID. Please contact your organization administrator.',
-              code: 'INVALID_ORG_ID'
-            })
-            return
+        
+        if (!validation.valid) {
+          console.log('Invalid OrgID - not found in RescueGroups')
+          res.status(403).json({ 
+            error: 'Access Denied',
+            message: 'Invalid organization ID. Please contact your organization administrator.',
+            code: 'INVALID_ORG_ID'
+          })
+          return
           }
         }
 
@@ -2024,21 +2024,21 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
             console.log('New organization but user has verified invitation with role:', userRole)
           }
           
-          // Create organization document
-          const orgData: any = {
-            createdAt: FieldValue.serverTimestamp(),
-            createdBy: userId,
-            organizationType: 'shelter',
-            rescueGroupsId: orgId,
-            rescueGroupsName: validation.orgData?.attributes?.name || '',
-            rescueGroupsCity: validation.orgData?.attributes?.city || '',
-            rescueGroupsState: validation.orgData?.attributes?.state || '',
-            users: [],
-            verified: false,
-            verificationRequired: true
-          }
-          
-          await admin.firestore().collection('organizations').doc(orgId).set(orgData)
+            // Create organization document
+            const orgData: any = {
+              createdAt: FieldValue.serverTimestamp(),
+              createdBy: userId,
+              organizationType: 'shelter',
+              rescueGroupsId: orgId,
+              rescueGroupsName: validation.orgData?.attributes?.name || '',
+              rescueGroupsCity: validation.orgData?.attributes?.city || '',
+              rescueGroupsState: validation.orgData?.attributes?.state || '',
+              users: [],
+              verified: false,
+              verificationRequired: true
+            }
+            
+            await admin.firestore().collection('organizations').doc(orgId).set(orgData)
         } else {
           console.log('Existing organization - checking for admin role:', { 
             orgId, 
@@ -2051,7 +2051,7 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
         const orgName = validation?.orgData?.attributes?.name || 
                         orgDocData?.rescueGroupsName || 
                         orgDocData?.name || ''
-        
+
         // Create user document
         const userData = {
           createdAt: FieldValue.serverTimestamp(),
@@ -2193,15 +2193,15 @@ async function sendOrgVerificationEmailInternal(orgId: string, userId: string, v
 
     const subject = 'Verify Your Organization - Feline Finder'
     const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Organization Verification Required</h2>
-        <p>Someone has requested to register your organization "${orgData?.rescueGroupsName || 'Unknown'}" with Feline Finder.</p>
-        <p>To verify this request and grant admin access, please click the button below:</p>
-        <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
-          If you did not request this verification, please ignore this email.
-        </p>
-      </div>
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Organization Verification Required</h2>
+                <p>Someone has requested to register your organization "${orgData?.rescueGroupsName || 'Unknown'}" with Feline Finder.</p>
+                <p>To verify this request and grant admin access, please click the button below:</p>
+                <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
+                <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+                  If you did not request this verification, please ignore this email.
+                </p>
+              </div>
     `
     
     const textBody = `
@@ -2358,21 +2358,21 @@ export const sendOrganizationVerificationEmail = functions.https.onRequest(async
       // Prepare email content
       const subject = 'Verify Your Organization - Feline Finder'
       const htmlBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Organization Verification Required</h2>
-          <p>Hello,</p>
-          <p>Someone has claimed to be the administrator for <strong>${orgData?.rescueGroupsName || 'your organization'}</strong> and requested access to the Feline Finder Organization Portal.</p>
-          <p>If you are the legitimate administrator and wish to verify this organization, please click the verification link below:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Organization Verification Required</h2>
+                  <p>Hello,</p>
+                  <p>Someone has claimed to be the administrator for <strong>${orgData?.rescueGroupsName || 'your organization'}</strong> and requested access to the Feline Finder Organization Portal.</p>
+                  <p>If you are the legitimate administrator and wish to verify this organization, please click the verification link below:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Organization</a>
+            </div>
+            <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
+                  <p><strong>Important:</strong> This link will expire in 24 hours for security reasons.</p>
+                  <p>If you did not request this verification or are not the administrator, please ignore this email.</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            <p style="color: #666; font-size: 12px;">This email was sent by Feline Finder Organization Portal</p>
           </div>
-          <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-          <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
-          <p><strong>Important:</strong> This link will expire in 24 hours for security reasons.</p>
-          <p>If you did not request this verification or are not the administrator, please ignore this email.</p>
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-          <p style="color: #666; font-size: 12px;">This email was sent by Feline Finder Organization Portal</p>
-        </div>
       `
       
       const textBody = `
@@ -2427,9 +2427,9 @@ This email was sent by Feline Finder Organization Portal
           res.on('end', () => {
             if (res.statusCode >= 200 && res.statusCode < 300) {
               console.log('Verification email sent via Postmark:', { 
-                userId, 
-                orgId, 
-                verificationUuid, 
+          userId, 
+          orgId, 
+          verificationUuid, 
                 orgEmail
               })
               resolve()
@@ -2442,7 +2442,7 @@ This email was sent by Feline Finder Organization Portal
         req.on('error', reject)
         req.write(postData)
         req.end()
-      })
+        })
 
       res.json({
         success: true,
@@ -2904,7 +2904,7 @@ This is a TEST MODE email sent by Feline Finder Organization Portal
 
       // Send verification email using Postmark (production mode only)
       const postmarkClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY || '')
-      
+
       await postmarkClient.sendEmail({
         From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
         To: recipientEmail,

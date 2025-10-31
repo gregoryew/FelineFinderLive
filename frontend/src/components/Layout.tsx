@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/auth'
 import { Home, Users, Settings, LogOut, UserPlus, LogIn, Clock, Cat } from 'lucide-react'
-import { API_CONFIG } from '../config/environment'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../services/firebase'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -25,22 +26,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
 
       try {
-        const idToken = await user.getIdToken()
-        const response = await fetch(`${API_CONFIG.baseUrl}/getOnboardingProgress`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${idToken}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          if (result && typeof result === 'object') {
-            const data = result as { onboarding: any; completed: boolean; pendingSetup?: boolean }
-            // Use pendingSetup from the response, default to true if not provided
-            setPendingSetup(data.pendingSetup !== undefined ? data.pendingSetup : true)
-          }
+        const getOnboardingProgressFunc = httpsCallable(functions, 'getOnboardingProgress')
+        const result = await getOnboardingProgressFunc({})
+        
+        if (result && result.data) {
+          const data = result.data as { onboarding: any; completed: boolean; pendingSetup?: boolean }
+          console.log('Layout - getOnboardingProgress result:', { 
+            pendingSetup: data.pendingSetup,
+            completed: data.completed 
+          })
+          // Use pendingSetup from the response, default to true if not provided
+          setPendingSetup(data.pendingSetup !== undefined ? data.pendingSetup : true)
         }
       } catch (error) {
         console.error('Error checking onboarding status:', error)
