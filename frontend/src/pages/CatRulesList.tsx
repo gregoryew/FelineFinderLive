@@ -135,20 +135,11 @@ const CatRulesList: React.FC = () => {
 
   return (
     <div className="py-8 max-w-7xl mx-auto px-4">
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cat Rules</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage availability rules and volunteer assignments for cats
-          </p>
-        </div>
-        <button
-          onClick={() => navigate('/cat-rules/new')}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-feline-600 hover:bg-feline-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Cat Rules
-        </button>
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-bold text-gray-900">Cat Rules</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Manage availability rules and volunteer assignments for cats
+        </p>
       </div>
 
       {error && (

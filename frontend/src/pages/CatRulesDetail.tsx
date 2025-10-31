@@ -25,6 +25,11 @@ interface Volunteer {
   email: string
 }
 
+interface CatInfo {
+  name: string
+  pictureUrl?: string
+}
+
 const CatRulesDetail: React.FC = () => {
   const { catId } = useParams<{ catId: string }>()
   const { user } = useAuth()
@@ -37,6 +42,7 @@ const CatRulesDetail: React.FC = () => {
     exceptions: []
   })
   const [volunteers, setVolunteers] = useState<Volunteer[]>([])
+  const [catInfo, setCatInfo] = useState<CatInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,10 +51,43 @@ const CatRulesDetail: React.FC = () => {
   useEffect(() => {
     if (!isNew && catId && user) {
       loadPet()
+      loadCatInfo(parseInt(catId))
     } else if (isNew) {
       setLoading(false)
     }
   }, [catId, user, isNew])
+
+  const loadCatInfo = async (animalId: number) => {
+    try {
+      const functions = getFunctions()
+      const getAllCatsFunc = httpsCallable(functions, 'getAllCatsByOrgId')
+      const response = await getAllCatsFunc({})
+      const result = response.data as { success: boolean; cats: Array<{ animalId: number; name: string; pictureUrl?: string }> }
+      
+      if (result.success && result.cats) {
+        const cat = result.cats.find(c => c.animalId === animalId)
+        if (cat) {
+          setCatInfo({
+            name: cat.name,
+            pictureUrl: cat.pictureUrl
+          })
+        } else {
+          // Fallback if cat not found
+          setCatInfo({
+            name: `Cat ID: ${animalId}`,
+            pictureUrl: undefined
+          })
+        }
+      }
+    } catch (err: any) {
+      console.error('Error loading cat info:', err)
+      // Don't set error state - just use fallback
+      setCatInfo({
+        name: `Cat ID: ${parseInt(catId!)}`,
+        pictureUrl: undefined
+      })
+    }
+  }
 
   const loadPet = async () => {
     try {
@@ -227,9 +266,25 @@ const CatRulesDetail: React.FC = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Cat Rules
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {isNew ? 'Add Cat Rules' : `Cat Rules - Cat ID: ${pet.catId}`}
-        </h1>
+        {isNew ? (
+          <h1 className="text-2xl font-bold text-gray-900">Add Cat Rules</h1>
+        ) : catInfo ? (
+          <div className="flex items-center gap-3">
+            {catInfo.pictureUrl ? (
+              <img
+                src={catInfo.pictureUrl}
+                alt={catInfo.name}
+                className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            ) : null}
+            <h1 className="text-2xl font-bold text-gray-900">{catInfo.name}</h1>
+          </div>
+        ) : (
+          <h1 className="text-2xl font-bold text-gray-900">Cat Rules - Cat ID: {pet.catId}</h1>
+        )}
       </div>
 
       {error && (
