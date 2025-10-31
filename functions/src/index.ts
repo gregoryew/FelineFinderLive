@@ -138,6 +138,28 @@ export const getFrontendUrlHelper = (): string => {
   return getFrontendUrl()
 }
 
+// Check if test email mode is enabled (redirects all emails to gregoryew@gmail.com)
+const isTestEmailMode = (): boolean => {
+  if (isLocalDevelopment) {
+    // In local development, check environment variable (default to true)
+    const testEmail = process.env.TEST_EMAIL
+    return testEmail === undefined || testEmail === '' || testEmail.toLowerCase() === 'true'
+  } else {
+    // In production, check Firebase config
+    const config = functions.config()
+    const testEmail = config?.email?.test_mode
+    return testEmail === true || testEmail === 'true'
+  }
+}
+
+// Get recipient email, redirecting to test email if test mode is enabled
+const getRecipientEmail = (originalEmail: string): string => {
+  if (isTestEmailMode()) {
+    return 'gregoryew@gmail.com'
+  }
+  return originalEmail
+}
+
 // Configuration for local development
 const getConfig = () => {
   if (isLocalDevelopment) {
@@ -524,17 +546,16 @@ This invitation will expire in 7 days.
     `
 
     // In test mode, redirect emails to a test address
-    const testEmail = 'gregoryew@gmail.com'
-    const recipientEmail = isLocalDevelopment ? testEmail : inviteeEmail
+    const recipientEmail = getRecipientEmail(inviteeEmail)
     
     const postData = JSON.stringify({
       From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
       To: recipientEmail,
-      Subject: isLocalDevelopment ? `[TEST] ${subject}` : subject,
-      HtmlBody: isLocalDevelopment 
+      Subject: isTestEmailMode() ? `[TEST] ${subject}` : subject,
+      HtmlBody: isTestEmailMode() 
         ? `<div style="background-color: #ff6b6b; color: white; padding: 10px; text-align: center;"><strong>⚠️ TEST MODE</strong></div><br/>${htmlBody.replace(`<h2 style="color: #2563eb;">You're invited to join ${organizationName}</h2>`, `<h2 style="color: #2563eb;">[TEST] You're invited to join ${organizationName}</h2><p><strong>Original Recipient:</strong> ${inviteeEmail}</p>`)}`
         : htmlBody,
-      TextBody: isLocalDevelopment 
+      TextBody: isTestEmailMode() 
         ? `[TEST MODE - Original Recipient: ${inviteeEmail}]\n\n${textBody}`
         : textBody,
       MessageStream: 'outbound'
@@ -2150,12 +2171,19 @@ ${verificationUrl}
 If you did not request this verification, please ignore this email.
     `
 
+    // Get recipient email (redirects to test email if TEST_EMAIL is enabled)
+    const recipientEmail = getRecipientEmail(orgEmail)
+    
     const postData = JSON.stringify({
       From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
-      To: orgEmail,
-      Subject: subject,
-      HtmlBody: htmlBody,
-      TextBody: textBody,
+      To: recipientEmail,
+      Subject: isTestEmailMode() ? `[TEST] ${subject}` : subject,
+      HtmlBody: isTestEmailMode() 
+        ? `<div style="background-color: #ff6b6b; color: white; padding: 10px; text-align: center;"><strong>⚠️ TEST MODE</strong></div><br/>${htmlBody.replace('<h2 style="color: #2563eb;">Organization Verification Required</h2>', '<h2 style="color: #2563eb;">[TEST] Organization Verification Required</h2><p><strong>Original Recipient:</strong> ' + orgEmail + '</p>')}`
+        : htmlBody,
+      TextBody: isTestEmailMode() 
+        ? `[TEST MODE - Original Recipient: ${orgEmail}]\n\n${textBody}`
+        : textBody,
       MessageStream: 'outbound'
     })
 
@@ -2318,19 +2346,18 @@ If you did not request this verification or are not the administrator, please ig
 This email was sent by Feline Finder Organization Portal
       `
 
-      // In test mode, redirect emails to a test address
-      const testEmail = 'gregoryew@gmail.com'
-      const recipientEmail = isLocalDevelopment ? testEmail : orgEmail
+      // Get recipient email (redirects to test email if test mode enabled)
+      const recipientEmail = getRecipientEmail(orgEmail)
       
       // Send email via Postmark
       const postData = JSON.stringify({
         From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
         To: recipientEmail,
-        Subject: isLocalDevelopment ? `[TEST] ${subject}` : subject,
-        HtmlBody: isLocalDevelopment 
+        Subject: isTestEmailMode() ? `[TEST] ${subject}` : subject,
+        HtmlBody: isTestEmailMode() 
           ? `<div style="background-color: #ff6b6b; color: white; padding: 10px; text-align: center;"><strong>⚠️ TEST MODE</strong></div><br/>${htmlBody.replace('<h2 style="color: #2563eb;">Organization Verification Required</h2>', '<h2 style="color: #2563eb;">[TEST] Organization Verification Required</h2><p><strong>Original Recipient:</strong> ' + orgEmail + '</p><p><strong>Organization:</strong> ' + (orgData?.rescueGroupsName || 'Unknown') + '</p>')}`
           : htmlBody,
-        TextBody: isLocalDevelopment 
+        TextBody: isTestEmailMode() 
           ? `[TEST MODE - Original Recipient: ${orgEmail}]\nOrganization: ${orgData?.rescueGroupsName || 'Unknown'}\n\n${textBody}`
           : textBody,
         MessageStream: 'outbound'
@@ -2703,8 +2730,9 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
       console.log('Successfully wrote organization document to Firestore')
 
       // In test mode, generate mock booking data for the new organization
-      const isTestMode = isLocalDevelopment || process.env.TEST_MODE === 'true'
-      if (isTestMode) {
+      // Use test email mode check instead of old isTestMode
+      const useTestMode = isTestEmailMode()
+      if (useTestMode) {
         console.log(`📦 TEST MODE: Generating mock booking data for orgId: ${orgId}`)
         await generateMockBookings(orgId)
       }
@@ -2735,11 +2763,12 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
       const frontendUrl = getFrontendUrl()
       const verificationUrl = `${frontendUrl}/jwt-verification?jwt=${token}`
 
-      // isTestMode is already defined above
-      if (isTestMode) {
-        // In test mode, send email to greg@felinefinder.org instead of the real organization
-        const testEmail = 'greg@felinefinder.org'
-        console.log('TEST MODE: Sending email to test address:', testEmail)
+      // Get recipient email (uses TEST_EMAIL env var / config)
+      const recipientEmail = getRecipientEmail(orgEmail)
+      
+      // Log if test mode is enabled
+      if (isTestEmailMode()) {
+        console.log('TEST MODE: Sending email to test address:', recipientEmail)
         console.log('Original organization email:', orgEmail)
         console.log('Verification URL:', verificationUrl)
         
@@ -2769,8 +2798,8 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
 
         await postmarkClient.sendEmail({
           From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
-          To: testEmail,  // Send to your email instead
-          Subject: `[TEST] Verify Your Organization - ${orgData.attributes?.name || 'Unknown'}`,
+          To: recipientEmail,  // Send to test email if TEST_EMAIL is enabled
+          Subject: isTestEmailMode() ? `[TEST] Verify Your Organization - ${orgData.attributes?.name || 'Unknown'}` : `Verify Your Organization - ${orgData.attributes?.name || 'Unknown'}`,
           HtmlBody: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 3px solid #ff6b6b; padding: 20px;">
               <div style="background-color: #ff6b6b; color: white; padding: 10px; margin: -20px -20px 20px -20px; text-align: center;">
@@ -2813,17 +2842,17 @@ This is a TEST MODE email sent by Feline Finder Organization Portal
           MessageStream: 'outbound'
         })
         
-        console.log('TEST MODE: Email sent successfully to', testEmail)
+        console.log('TEST MODE: Email sent successfully to', recipientEmail)
 
         res.json({ 
           success: true,
           testMode: true,
           emailDetails: {
-            to: testEmail,
+            to: recipientEmail,
             originalTo: orgEmail,
             verificationUrl: verificationUrl,
             organizationName: orgData.attributes?.name || 'Unknown',
-            message: `TEST MODE: Email sent to ${testEmail} instead of ${orgEmail}`
+            message: `TEST MODE: Email sent to ${recipientEmail} instead of ${orgEmail}`
           }
         })
         return
@@ -2832,10 +2861,13 @@ This is a TEST MODE email sent by Feline Finder Organization Portal
       // Send verification email using Postmark (production mode only)
       const postmarkClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY || '')
 
+      // Get recipient email (uses TEST_EMAIL env var / config)
+      const recipientEmail = getRecipientEmail(orgEmail)
+      
       await postmarkClient.sendEmail({
         From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
-        To: orgEmail,
-        Subject: 'Verify Your Organization - Feline Finder',
+        To: recipientEmail,
+        Subject: isTestEmailMode() ? `[TEST] Verify Your Organization - Feline Finder` : 'Verify Your Organization - Feline Finder',
         HtmlBody: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Organization Verification Required</h2>
@@ -3728,9 +3760,8 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
       }
     }
 
-    // In test mode, redirect emails to test address
-    const testEmail = 'gregoryew@gmail.com'
-    const recipientEmail = isLocalDevelopment ? testEmail : adopterEmail
+    // Get recipient email (redirects to test email if TEST_EMAIL is enabled)
+    const recipientEmail = getRecipientEmail(adopterEmail)
 
     // Generate email content based on type
     let subject = ''
@@ -3809,11 +3840,11 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
     const postData = JSON.stringify({
       From: process.env.POSTMARK_FROM_EMAIL || 'noreply@felinefinder.org',
       To: recipientEmail,
-      Subject: isLocalDevelopment ? `[TEST] ${subject}` : subject,
-      HtmlBody: isLocalDevelopment 
+      Subject: isTestEmailMode() ? `[TEST] ${subject}` : subject,
+      HtmlBody: isTestEmailMode() 
         ? `<div style="background-color: #ff6b6b; color: white; padding: 10px; text-align: center;"><strong>⚠️ TEST MODE - Email would normally go to: ${adopterEmail}</strong></div><br/>${htmlBody}`
         : htmlBody,
-      TextBody: isLocalDevelopment 
+      TextBody: isTestEmailMode() 
         ? `[TEST MODE - Original recipient: ${adopterEmail}]\n\n${textBody}`
         : textBody,
       MessageStream: 'outbound'
@@ -3839,7 +3870,7 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
         res.on('data', (chunk: any) => { data += chunk })
         res.on('end', () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            console.log(`Email sent successfully to ${recipientEmail}${isLocalDevelopment ? ` (would normally go to: ${adopterEmail})` : ''}`)
+            console.log(`Email sent successfully to ${recipientEmail}${isTestEmailMode() ? ` (would normally go to: ${adopterEmail})` : ''}`)
             resolve()
           } else {
             console.error(`Postmark API error: ${res.statusCode}`)
@@ -3859,7 +3890,7 @@ export const sendBookingEmail = functions.https.onCall(async (data, context) => 
       req.end()
     })
 
-    return { success: true, message: `Email sent to ${recipientEmail}${isLocalDevelopment ? ` (original: ${adopterEmail})` : ''}` }
+    return { success: true, message: `Email sent to ${recipientEmail}${isTestEmailMode() ? ` (original: ${adopterEmail})` : ''}` }
   } catch (error: any) {
     console.error('Error sending booking email:', error)
     throw new functions.https.HttpsError('internal', error.message || 'Failed to send email')

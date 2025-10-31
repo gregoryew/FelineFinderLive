@@ -6,6 +6,28 @@ const jwt = require('jsonwebtoken')
 
 const isLocalDevelopment = process.env.FUNCTIONS_EMULATOR === 'true'
 
+// Check if test email mode is enabled (redirects all emails to gregoryew@gmail.com)
+const isTestEmailMode = (): boolean => {
+  if (isLocalDevelopment) {
+    // In local development, check environment variable (default to true)
+    const testEmail = process.env.TEST_EMAIL
+    return testEmail === undefined || testEmail === '' || testEmail.toLowerCase() === 'true'
+  } else {
+    // In production, check Firebase config
+    const config = functions.config()
+    const testEmail = config?.email?.test_mode
+    return testEmail === true || testEmail === 'true'
+  }
+}
+
+// Get recipient email, redirecting to test email if test mode is enabled
+const getRecipientEmail = (originalEmail: string): string => {
+  if (isTestEmailMode()) {
+    return 'gregoryew@gmail.com'
+  }
+  return originalEmail
+}
+
 // Send team member invitations
 export const sendTeamMemberInvitations = functions.https.onCall(async (data, context) => {
   try {
@@ -150,8 +172,8 @@ async function sendInvitationEmail(
   orgId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // In test mode, only send to gregoryew@gmail.com
-    const recipientEmail = isLocalDevelopment ? 'gregoryew@gmail.com' : email
+    // Get recipient email (redirects to test email if TEST_EMAIL is enabled)
+    const recipientEmail = getRecipientEmail(email)
 
     // Generate verification URL using environment variable or config
     const frontendUrl = isLocalDevelopment
@@ -178,13 +200,13 @@ async function sendInvitationEmail(
     }
 
     // Prepare email content
-    const emailSubject = isLocalDevelopment 
+    const emailSubject = isTestEmailMode() 
       ? `[TEST] Join ${orgName} on Feline Finder` 
       : `Join ${orgName} on Feline Finder`
     
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        ${isLocalDevelopment ? '<div style="background-color: #ff0000; color: white; padding: 10px; font-weight: bold; text-align: center;">TEST MODE - Email would be sent to: ' + email + '</div>' : ''}
+        ${isTestEmailMode() ? '<div style="background-color: #ff0000; color: white; padding: 10px; font-weight: bold; text-align: center;">TEST MODE - Email would be sent to: ' + email + '</div>' : ''}
         <h2 style="color: #2563eb;">You've Been Invited to Join ${orgName}</h2>
         <p>Hello${name ? ' ' + name : ''},</p>
         <p>You've been invited to join <strong>${orgName}</strong> on Feline Finder, our cat adoption management system.</p>
@@ -239,7 +261,7 @@ This invitation will expire in 7 days for security reasons.
 
 If you did not expect this invitation or have questions, please contact your organization administrator.
 
-${isLocalDevelopment ? 'TEST MODE - This email would normally be sent to: ' + email : ''}
+${isTestEmailMode() ? 'TEST MODE - This email would normally be sent to: ' + email : ''}
     `
 
     // Send email via Postmark using native https module
