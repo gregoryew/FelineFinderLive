@@ -17,21 +17,37 @@ interface Pet {
   }>
 }
 
+interface RescueGroupsCat {
+  id: string
+  animalId: number
+  name: string
+  breed: string
+  age: string
+  sex: string
+}
+
+interface CatWithRules extends RescueGroupsCat {
+  hasRules: boolean
+  petDocumentId?: string
+  assignedVolunteersCount?: number
+  exceptionsCount?: number
+}
+
 const CatRulesList: React.FC = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [pets, setPets] = useState<Pet[]>([])
+  const [cats, setCats] = useState<CatWithRules[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
-      loadPets()
+      loadAllCats()
     }
   }, [user])
 
-  const loadPets = async () => {
+  const loadAllCats = async () => {
     if (!user) return
 
     try {
@@ -39,37 +55,71 @@ const CatRulesList: React.FC = () => {
       setError(null)
 
       const functions = getFunctions()
+      
+      // Fetch all cats from RescueGroups
+      const getAllCatsFunc = httpsCallable(functions, 'getAllCatsByOrgId')
+      const rescueGroupsResponse = await getAllCatsFunc({})
+      const rescueGroupsResult = rescueGroupsResponse.data as { success: boolean; cats: RescueGroupsCat[] }
+      
+      // Fetch existing pet rules from Firestore
       const getPetsFunc = httpsCallable(functions, 'getPets')
-      const response = await getPetsFunc({})
+      const petsResponse = await getPetsFunc({})
+      const petsResult = petsResponse.data as { success: boolean; pets: Pet[] }
 
-      const result = response.data as { success: boolean; pets: Pet[] }
+      if (rescueGroupsResult.success) {
+        const rescueGroupsCats = rescueGroupsResult.cats || []
+        const existingPets = petsResult.success ? (petsResult.pets || []) : []
+        
+        // Create a map of existing pets by catId for quick lookup
+        const petsMap = new Map<number, Pet>()
+        existingPets.forEach(pet => {
+          petsMap.set(pet.catId, pet)
+        })
 
-      if (result.success) {
-        setPets(result.pets || [])
+        // Merge RescueGroups cats with existing pet rules
+        const catsWithRules: CatWithRules[] = rescueGroupsCats.map(cat => {
+          const existingPet = petsMap.get(cat.animalId)
+          return {
+            ...cat,
+            hasRules: !!existingPet,
+            petDocumentId: existingPet?.id,
+            assignedVolunteersCount: existingPet?.assignedVolunteers?.length || 0,
+            exceptionsCount: existingPet?.exceptions?.length || 0
+          }
+        })
+
+        // Sort by name
+        catsWithRules.sort((a, b) => a.name.localeCompare(b.name))
+        
+        setCats(catsWithRules)
       } else {
-        setError('Failed to load pets')
+        setError('Failed to load cats from RescueGroups')
       }
     } catch (err: any) {
-      console.error('Error loading pets:', err)
-      setError(err.message || 'Failed to load pets')
+      console.error('Error loading cats:', err)
+      setError(err.message || 'Failed to load cats')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (pet: Pet) => {
-    if (!confirm(`Are you sure you want to delete rules for cat ID ${pet.catId}?`)) {
+  const handleDelete = async (cat: CatWithRules) => {
+    if (!cat.hasRules || !cat.petDocumentId) {
+      return
+    }
+
+    if (!confirm(`Are you sure you want to delete rules for ${cat.name} (ID ${cat.animalId})?`)) {
       return
     }
 
     try {
-      setDeletingId(pet.id)
+      setDeletingId(cat.petDocumentId)
       const functions = getFunctions()
       const deletePetFunc = httpsCallable(functions, 'deletePet')
-      await deletePetFunc({ catId: pet.catId })
+      await deletePetFunc({ catId: cat.animalId })
 
-      // Reload pets
-      await loadPets()
+      // Reload cats
+      await loadAllCats()
     } catch (err: any) {
       console.error('Error deleting pet:', err)
       alert(err.message || 'Failed to delete pet')
@@ -111,50 +161,64 @@ const CatRulesList: React.FC = () => {
           <div className="animate-spin h-8 w-8 border-4 border-feline-500 border-t-transparent rounded-full mx-auto"></div>
           <p className="mt-4 text-gray-500">Loading cat rules...</p>
         </div>
-      ) : pets.length === 0 ? (
+      ) : cats.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
           <Cat className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500">No cat rules found</p>
+          <p className="text-gray-500">No cats found</p>
           <p className="text-sm text-gray-400 mt-2">
-            Click "Add Cat Rules" to create rules for a cat
+            No available cats found for your organization
           </p>
         </div>
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
-            {pets.map((pet) => (
-              <li key={pet.id}>
-                <div className="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
+            {cats.map((cat) => (
+              <li key={cat.id}>
+                <div className={`px-4 py-4 flex items-center justify-between hover:bg-gray-50 ${cat.hasRules ? '' : 'bg-gray-50'}`}>
                   <div className="flex items-center flex-1">
-                    <Cat className="w-8 h-8 text-feline-600 mr-4" />
+                    <Cat className={`w-8 h-8 mr-4 ${cat.hasRules ? 'text-feline-600' : 'text-gray-300'}`} />
                     <div className="flex-1">
                       <div className="flex items-center">
                         <h3 className="text-lg font-medium text-gray-900">
-                          Cat ID: {pet.catId}
+                          {cat.name}
                         </h3>
+                        {!cat.hasRules && (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            No Rules
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 text-sm text-gray-500">
-                        {pet.assignedVolunteers?.length || 0} assigned volunteer{pet.assignedVolunteers?.length !== 1 ? 's' : ''} • {' '}
-                        {pet.exceptions?.length || 0} availability exception{pet.exceptions?.length !== 1 ? 's' : ''}
+                        ID: {cat.animalId} • {cat.breed} • {cat.age} • {cat.sex}
+                        {cat.hasRules && (
+                          <>
+                            {' • '}
+                            {cat.assignedVolunteersCount || 0} assigned volunteer{(cat.assignedVolunteersCount || 0) !== 1 ? 's' : ''}
+                            {' • '}
+                            {cat.exceptionsCount || 0} availability exception{(cat.exceptionsCount || 0) !== 1 ? 's' : ''}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => navigate(`/cat-rules/${pet.catId}`)}
+                      onClick={() => navigate(`/cat-rules/${cat.animalId}`)}
                       className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                     >
                       <Edit2 className="w-4 h-4 mr-1" />
-                      Edit
+                      {cat.hasRules ? 'Edit' : 'Add Rules'}
                     </button>
-                    <button
-                      onClick={() => handleDelete(pet)}
-                      disabled={deletingId === pet.id}
-                      className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50"
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      {deletingId === pet.id ? 'Deleting...' : 'Delete'}
-                    </button>
+                    {cat.hasRules && cat.petDocumentId && (
+                      <button
+                        onClick={() => handleDelete(cat)}
+                        disabled={deletingId === cat.petDocumentId}
+                        className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        {deletingId === cat.petDocumentId ? 'Deleting...' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>

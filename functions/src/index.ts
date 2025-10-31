@@ -331,6 +331,92 @@ function getRescueGroupsApiKey(): string {
 }
 
 // Search cats from RescueGroups API for a specific organization
+// Get all cats from RescueGroups API for a specific organization
+export const getAllCatsByOrgId = functions.https.onCall(async (data: any, context: any) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+    }
+
+    const userId = context.auth.uid
+
+    // Get organization ID from team data
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found')
+    }
+
+    const userData = userDoc.data()
+    const orgId = userData?.orgId || userData?.OrgID
+
+    if (!orgId) {
+      throw new functions.https.HttpsError('failed-precondition', 'User has no organization ID')
+    }
+
+    // Get API key securely (server-side only)
+    const apiKey = getRescueGroupsApiKey()
+
+    // Query RescueGroups API for all cats in this organization
+    const url = 'https://api.rescuegroups.org/v5/public/animals/search/available'
+    
+    const requestData = {
+      data: {
+        filters: [
+          {
+            fieldName: 'animals.species',
+            operation: 'equal',
+            criteria: 'Cat'
+          },
+          {
+            fieldName: 'animals.status',
+            operation: 'equal',
+            criteria: 'Available'
+          },
+          {
+            fieldName: 'animals.orgID',
+            operation: 'equal',
+            criteria: orgId
+          }
+        ]
+      }
+    }
+
+    const fetch = require('node-fetch')
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `apikey ${apiKey}`
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    if (!response.ok) {
+      throw new Error(`RescueGroups API error: ${response.status}`)
+    }
+
+    const result = await response.json()
+    
+    // Extract cat names and IDs from the response
+    const cats = (result as any).data?.map((animal: any) => ({
+      id: animal.id,
+      animalId: parseInt(animal.id, 10), // Use animalId for consistency with pet documents
+      name: animal.attributes?.name || 'Unnamed Cat',
+      breed: animal.attributes?.breedPrimary || 'Unknown Breed',
+      age: animal.attributes?.ageGroup || 'Unknown Age',
+      sex: animal.attributes?.sex || 'Unknown'
+    })) || []
+
+    return { success: true, cats }
+  } catch (error: any) {
+    console.error('Error fetching all cats from RescueGroups:', error)
+    if (error instanceof functions.https.HttpsError) {
+      throw error
+    }
+    throw new functions.https.HttpsError('internal', 'Failed to fetch cats')
+  }
+})
+
 export const searchCatsByOrgId = functions.https.onRequest(async (req, res) => {
   return corsHandler(req, res, async () => {
     if (req.method === 'OPTIONS') {
