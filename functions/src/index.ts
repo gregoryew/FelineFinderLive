@@ -187,11 +187,26 @@ const getConfig = () => {
     }
   } else {
     const config = functions.config()
+    console.log('DEBUG: Production config - gcal exists:', !!config.gcal)
+    console.log('DEBUG: Production config - gcal.client_id:', config.gcal?.client_id ? 'Present' : 'MISSING')
+    console.log('DEBUG: Production config - gcal.client_secret:', config.gcal?.client_secret ? 'Present' : 'MISSING')
+    
     // Ensure redirect_uri is set in config or use default
     if (!config.gcal?.redirect_uri) {
       config.gcal = config.gcal || {}
       config.gcal.redirect_uri = getOAuthRedirectUri()
     }
+    
+    // Validate that required fields exist
+    if (!config.gcal.client_id || !config.gcal.client_secret) {
+      console.error('ERROR: Google Calendar OAuth credentials missing in production config')
+      console.error('Current config:', {
+        hasClientId: !!config.gcal.client_id,
+        hasClientSecret: !!config.gcal.client_secret,
+        redirectUri: config.gcal.redirect_uri
+      })
+    }
+    
     return config
   }
 }
@@ -1206,11 +1221,29 @@ export const generateCalendarOAuthUrl = functions.https.onRequest(async (req, re
         return
       }
 
-      console.log('DEBUG: Using local development configuration')
+      console.log('DEBUG: Getting OAuth configuration...')
       
       // Use local emulator URL for development, cloud URL for production
       const config = getConfig()
       const redirectUri = getOAuthRedirectUri()
+
+      // Validate configuration
+      if (!config.gcal?.client_id || !config.gcal?.client_secret) {
+        console.error('ERROR: Missing Google Calendar OAuth credentials')
+        console.error('Config object:', JSON.stringify(config, null, 2))
+        console.error('gcal object:', config.gcal)
+        res.status(500).json({ 
+          error: 'OAuth configuration error',
+          message: 'Google Calendar OAuth client_id or client_secret is not configured. Please set gcal.client_id and gcal.client_secret in Firebase Functions config.',
+          details: isLocalDevelopment 
+            ? 'Check functions/.env file for GCAL_CLIENT_ID and GCAL_CLIENT_SECRET'
+            : 'Run: firebase functions:config:set gcal.client_id="YOUR_CLIENT_ID" gcal.client_secret="YOUR_CLIENT_SECRET"'
+        })
+        return
+      }
+
+      console.log('DEBUG: OAuth config validated - client_id present:', !!config.gcal.client_id)
+      console.log('DEBUG: Redirect URI:', redirectUri)
 
       const oauth2Client = new google.auth.OAuth2(
         config.gcal.client_id,
