@@ -397,15 +397,61 @@ export const getAllCatsByOrgId = functions.https.onCall(async (data: any, contex
 
     const result = await response.json()
     
+    // Create a map of included pictures by animal ID for quick lookup
+    const picturesMap = new Map<string, any>()
+    if (result.included) {
+      result.included.forEach((item: any) => {
+        if (item.type === 'pictures') {
+          // Find which animal this picture belongs to
+          const animalId = item.relationships?.animal?.data?.id
+          if (animalId) {
+            const existingPictures = picturesMap.get(animalId) || []
+            existingPictures.push(item)
+            picturesMap.set(animalId, existingPictures)
+          }
+        }
+      })
+    }
+    
     // Extract cat names and IDs from the response
-    const cats = (result as any).data?.map((animal: any) => ({
-      id: animal.id,
-      animalId: parseInt(animal.id, 10), // Use animalId for consistency with pet documents
-      name: animal.attributes?.name || 'Unnamed Cat',
-      breed: animal.attributes?.breedPrimary || 'Unknown Breed',
-      age: animal.attributes?.ageGroup || 'Unknown Age',
-      sex: animal.attributes?.sex || 'Unknown'
-    })) || []
+    const cats = (result as any).data?.map((animal: any) => {
+      // Get the first picture for this animal, preferring thumbnail or order 0
+      const pictures = picturesMap.get(animal.id) || []
+      let pictureUrl: string | undefined
+      
+      if (pictures.length > 0) {
+        // Sort pictures by order, preferring order 0 or 1
+        const sortedPictures = pictures.sort((a: any, b: any) => {
+          const orderA = a.attributes?.order || 999
+          const orderB = b.attributes?.order || 999
+          return orderA - orderB
+        })
+        
+        const primaryPicture = sortedPictures[0]
+        // Try different possible URL fields
+        pictureUrl = primaryPicture.attributes?.pictureUrl ||
+                    primaryPicture.attributes?.pictureThumbnailUrl ||
+                    primaryPicture.attributes?.picturePublicUrl ||
+                    primaryPicture.attributes?.url
+      }
+      
+      // Fallback to picture from attributes if available
+      if (!pictureUrl) {
+        pictureUrl = animal.attributes?.pictureUrl ||
+                    animal.attributes?.pictureThumbnailUrl ||
+                    animal.attributes?.picturePublicUrl
+      }
+      
+      return {
+        id: animal.id,
+        animalId: parseInt(animal.id, 10), // Use animalId for consistency with pet documents
+        name: animal.attributes?.name || 'Unnamed Cat',
+        breed: animal.attributes?.breedPrimary || 'Unknown Breed',
+        age: animal.attributes?.ageGroup || 'Unknown Age',
+        sex: animal.attributes?.sex || 'Unknown',
+        pictureUrl: pictureUrl || undefined
+      }
+    }) || []
 
     return { success: true, cats }
   } catch (error: any) {

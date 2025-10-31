@@ -24,6 +24,7 @@ interface RescueGroupsCat {
   breed: string
   age: string
   sex: string
+  pictureUrl?: string
 }
 
 interface CatWithRules extends RescueGroupsCat {
@@ -176,7 +177,22 @@ const CatRulesList: React.FC = () => {
               <li key={cat.id}>
                 <div className={`px-4 py-4 flex items-center justify-between hover:bg-gray-50 ${cat.hasRules ? '' : 'bg-gray-50'}`}>
                   <div className="flex items-center flex-1">
-                    <Cat className={`w-8 h-8 mr-4 ${cat.hasRules ? 'text-feline-600' : 'text-gray-300'}`} />
+                    {cat.pictureUrl ? (
+                      <img
+                        src={cat.pictureUrl}
+                        alt={cat.name}
+                        className="w-12 h-12 rounded-full object-cover mr-4 border-2 border-gray-200"
+                        onError={(e) => {
+                          // Fallback to icon if image fails to load
+                          e.currentTarget.style.display = 'none'
+                          const icon = e.currentTarget.nextElementSibling as HTMLElement
+                          if (icon) icon.style.display = 'block'
+                        }}
+                      />
+                    ) : null}
+                    <Cat 
+                      className={`w-8 h-8 mr-4 ${cat.hasRules ? 'text-feline-600' : 'text-gray-300'} ${cat.pictureUrl ? 'hidden' : ''}`}
+                    />
                     <div className="flex-1">
                       <div className="flex items-center">
                         <h3 className="text-lg font-medium text-gray-900">
