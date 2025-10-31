@@ -356,39 +356,16 @@ export const getAllCatsByOrgId = functions.https.onCall(async (data: any, contex
     // Get API key securely (server-side only)
     const apiKey = getRescueGroupsApiKey()
 
-    // Query RescueGroups API for all cats in this organization
-    const url = 'https://api.rescuegroups.org/v5/public/animals/search/available'
-    
-    const requestData = {
-      data: {
-        filters: [
-          {
-            fieldName: 'animals.species',
-            operation: 'equal',
-            criteria: 'Cat'
-          },
-          {
-            fieldName: 'animals.status',
-            operation: 'equal',
-            criteria: 'Available'
-          },
-          {
-            fieldName: 'animals.orgID',
-            operation: 'equal',
-            criteria: orgId
-          }
-        ]
-      }
-    }
+    // Query RescueGroups API for all cats in this organization using GET endpoint
+    const url = `https://api.rescuegroups.org/v5/public/orgs/${orgId}/animals/search/available/cats/`
 
     const fetch = require('node-fetch')
     const response = await fetch(url, {
-      method: 'POST',
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `apikey ${apiKey}`
-      },
-      body: JSON.stringify(requestData)
+        'Content-Type': 'application/vnd.api+json',
+        'Authorization': apiKey
+      }
     })
 
     if (!response.ok) {
