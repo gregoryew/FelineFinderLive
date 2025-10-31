@@ -350,7 +350,7 @@ const CatRulesDetail: React.FC = () => {
 
         <div className="px-6 py-4 border-t border-gray-200">
           <div className="flex justify-between items-center mb-4">
-            <div>
+            <div className="flex-1 text-center">
               <h2 className="text-lg font-medium text-gray-900">Availability Exceptions</h2>
               <p className="text-sm text-gray-500 mt-1">
                 Define times when this cat is not available for appointments
