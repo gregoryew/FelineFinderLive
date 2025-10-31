@@ -153,10 +153,10 @@ async function sendInvitationEmail(
     // In test mode, only send to gregoryew@gmail.com
     const recipientEmail = isLocalDevelopment ? 'gregoryew@gmail.com' : email
 
-    // Generate verification URL
+    // Generate verification URL using environment variable or config
     const frontendUrl = isLocalDevelopment
-      ? 'http://localhost:3000'
-      : 'https://catapp-44885.web.app'
+      ? process.env.FRONTEND_URL || 'http://localhost:3000'
+      : functions.config()?.frontend?.url || 'https://feline-finder-org-portal.web.app'
     
     const verificationUrl = `${frontendUrl}/team-member-verification?token=${encodeURIComponent(token)}&uuid=${uuid}&orgId=${orgId}`
 

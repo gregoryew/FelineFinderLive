@@ -107,6 +107,37 @@ const corsHandler = cors({
     : ['https://feline-finder-org-portal.web.app', 'https://feline-finder-org-portal.firebaseapp.com']
 })
 
+// Get base URLs from environment variables or config
+const getApiBaseUrl = (): string => {
+  if (isLocalDevelopment) {
+    return process.env.API_BASE_URL || 'http://127.0.0.1:5001/catapp-44885/us-central1'
+  } else {
+    return functions.config()?.api?.base_url || 'https://us-central1-catapp-44885.cloudfunctions.net'
+  }
+}
+
+const getFrontendUrl = (): string => {
+  if (isLocalDevelopment) {
+    return process.env.FRONTEND_URL || 'http://localhost:3000'
+  } else {
+    return functions.config()?.frontend?.url || 'https://feline-finder-org-portal.web.app'
+  }
+}
+
+const getOAuthRedirectUri = (): string => {
+  const baseUrl = getApiBaseUrl()
+  if (isLocalDevelopment) {
+    return process.env.OAUTH_REDIRECT_URI || `${baseUrl}/gcalOAuthCallback`
+  } else {
+    return functions.config()?.gcal?.redirect_uri || `${baseUrl}/gcalOAuthCallback`
+  }
+}
+
+// Export URL helpers for use in other modules
+export const getFrontendUrlHelper = (): string => {
+  return getFrontendUrl()
+}
+
 // Configuration for local development
 const getConfig = () => {
   if (isLocalDevelopment) {
@@ -126,14 +157,20 @@ const getConfig = () => {
       gcal: {
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: 'http://127.0.0.1:5001/catapp-44885/us-central1/gcalOAuthCallback'
+        redirect_uri: getOAuthRedirectUri()
       },
       rescuegroups: {
         api_key: apiKey
       }
     }
   } else {
-    return functions.config()
+    const config = functions.config()
+    // Ensure redirect_uri is set in config or use default
+    if (!config.gcal?.redirect_uri) {
+      config.gcal = config.gcal || {}
+      config.gcal.redirect_uri = getOAuthRedirectUri()
+    }
+    return config
   }
 }
 
@@ -437,9 +474,7 @@ export const sendOrganizationInvite = functions.https.onCall(async (data: any, c
     })
 
     // Generate invitation URL
-    const frontendUrl = isLocalDevelopment
-      ? 'http://localhost:3000'
-      : 'https://feline-finder-org-portal.web.app'
+    const frontendUrl = getFrontendUrl()
     const invitationUrl = `${frontendUrl}/invite?token=${invitationToken}`
 
     // Send invitation email using Postmark
@@ -1154,9 +1189,7 @@ export const generateCalendarOAuthUrl = functions.https.onRequest(async (req, re
       
       // Use local emulator URL for development, cloud URL for production
       const config = getConfig()
-      const redirectUri = isLocalDevelopment 
-        ? 'http://127.0.0.1:5001/catapp-44885/us-central1/gcalOAuthCallback'
-        : config.gcal.redirect_uri
+      const redirectUri = getOAuthRedirectUri()
 
       const oauth2Client = new google.auth.OAuth2(
         config.gcal.client_id,
@@ -1219,9 +1252,7 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
 
       // Use local emulator URL for development, cloud URL for production
       const config = getConfig()
-      const redirectUri = isLocalDevelopment 
-        ? 'http://127.0.0.1:5001/catapp-44885/us-central1/gcalOAuthCallback'
-        : config.gcal.redirect_uri
+      const redirectUri = getOAuthRedirectUri()
 
       const oauth2Client = new google.auth.OAuth2(
         config.gcal.client_id,
@@ -1342,23 +1373,17 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
           console.log('Generated custom token for user to sign in')
           
           // Clear the setup token from localStorage by redirecting with a flag and custom token
-          const frontendUrl = isLocalDevelopment 
-            ? 'http://localhost:3000'
-            : 'https://feline-finder-org-portal.web.app'
+          const frontendUrl = getFrontendUrl()
           res.redirect(`${frontendUrl}/onboarding?setup_complete=true&clearToken=true&customToken=${encodeURIComponent(customToken)}`)
         } catch (error) {
           console.error('Failed to create user account:', error)
           // Still redirect to onboarding even if user creation fails
-          const frontendUrl = isLocalDevelopment 
-            ? 'http://localhost:3000'
-            : 'https://feline-finder-org-portal.web.app'
+          const frontendUrl = getFrontendUrl()
           res.redirect(`${frontendUrl}/onboarding?error=user_creation_failed`)
         }
       } else {
         // Regular flow - just redirect to onboarding
-        const frontendUrl = isLocalDevelopment 
-          ? 'http://localhost:3000'
-          : 'https://feline-finder-org-portal.web.app'
+        const frontendUrl = getFrontendUrl()
         res.redirect(`${frontendUrl}/onboarding`)
       }
     } catch (error: any) {
@@ -1366,9 +1391,7 @@ export const gcalOAuthCallback = functions.https.onRequest(async (req, res) => {
       
       // For any OAuth error, redirect to onboarding page instead of showing 500
       console.log('OAuth error occurred - redirecting to onboarding')
-      const frontendUrl = isLocalDevelopment 
-        ? 'http://localhost:3000'
-        : 'https://feline-finder-org-portal.web.app'
+      const frontendUrl = getFrontendUrl()
       res.redirect(`${frontendUrl}/onboarding?error=oauth_failed`)
     }
 })
@@ -1476,9 +1499,7 @@ export const testCalendarConnection = functions.https.onRequest(async (req, res)
 
       // Set up OAuth2 client
       const config = getConfig()
-      const redirectUri = isLocalDevelopment 
-        ? 'http://127.0.0.1:5001/catapp-44885/us-central1/gcalOAuthCallback'
-        : config.gcal.redirect_uri
+      const redirectUri = getOAuthRedirectUri()
 
       const oauth2Client = new google.auth.OAuth2(
         config.gcal.client_id,
@@ -1580,9 +1601,7 @@ export const listCalendars = functions.https.onCall(async (data, context) => {
 
     // Set up OAuth2 client
     const config = getConfig()
-    const redirectUri = isLocalDevelopment 
-      ? 'http://127.0.0.1:5001/catapp-44885/us-central1/gcalOAuthCallback'
-      : config.gcal.redirect_uri
+    const redirectUri = getOAuthRedirectUri()
 
     console.log('🔧 Setting up OAuth2 client...')
     const oauth2Client = new google.auth.OAuth2(
@@ -2088,9 +2107,7 @@ async function sendOrgVerificationEmailInternal(orgId: string, userId: string, v
     }
 
     // Create verification URL
-    const frontendUrl = isLocalDevelopment
-      ? 'http://localhost:3000'
-      : 'https://feline-finder-org-portal.web.app'
+    const frontendUrl = getFrontendUrl()
     const verificationUrl = `${frontendUrl}/verify-organization?uuid=${verificationUuid}&orgId=${orgId}`
 
     // Send verification email using Postmark
@@ -2228,9 +2245,7 @@ export const sendOrganizationVerificationEmail = functions.https.onRequest(async
       })
 
       // Create verification URL
-      const frontendUrl = isLocalDevelopment
-        ? 'http://localhost:3000'
-        : 'https://feline-finder-org-portal.web.app'
+      const frontendUrl = getFrontendUrl()
       const verificationUrl = `${frontendUrl}/verify-organization?uuid=${verificationUuid}&orgId=${orgId}`
 
       // Get organization email from RescueGroups data
@@ -2717,9 +2732,7 @@ export const initiateOrganizationSetup = functions.https.onRequest(async (req, r
       }
 
       // Create verification URL
-      const frontendUrl = isLocalDevelopment
-        ? 'http://localhost:3000'
-        : 'https://feline-finder-org-portal.web.app'
+      const frontendUrl = getFrontendUrl()
       const verificationUrl = `${frontendUrl}/jwt-verification?jwt=${token}`
 
       // isTestMode is already defined above
@@ -3907,9 +3920,7 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
 
     // Set up OAuth2 client
     const config = getConfig()
-    const redirectUri = isLocalDevelopment 
-      ? 'http://127.0.0.1:5001/catapp-44885/us-central1/gcalOAuthCallback'
-      : config.gcal.redirect_uri
+    const redirectUri = getOAuthRedirectUri()
 
     const oauth2Client = new google.auth.OAuth2(
       config.gcal.client_id,
