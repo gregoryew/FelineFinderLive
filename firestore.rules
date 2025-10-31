@@ -46,6 +46,59 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
+    // Team collection - allow authenticated users to read team members in their organization
+    // Note: This rule allows querying the collection by orgId
+    match /team/{userId} {
+      allow read: if request.auth != null && (
+        // User can read their own document
+        request.auth.uid == userId ||
+        // Or if they're in the same organization (for queries)
+        (exists(/databases/$(database)/documents/team/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId != null &&
+         (resource == null || 
+          resource.data.orgId == get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId))
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Pets collection - allow authenticated users to read/write pets for their organization
+    match /pets/{petId} {
+      allow read: if request.auth != null && (
+        exists(/databases/$(database)/documents/team/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId != null
+      );
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/team/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId != null
+      );
+    }
+    
+    // Bookings collection - allow authenticated users to read/write bookings for their organization
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && (
+        exists(/databases/$(database)/documents/team/$(request.auth.uid)) &&
+        (resource == null || resource.data.orgId == 
+         get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId)
+      );
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/team/$(request.auth.uid)) &&
+        (resource == null || resource.data.orgId == 
+         get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId)
+      );
+    }
+    
+    // Adopters collection - allow authenticated users to read/write adopters for their organization
+    match /adopters/{adopterId} {
+      allow read: if request.auth != null && (
+        exists(/databases/$(database)/documents/team/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId != null
+      );
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/team/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/team/$(request.auth.uid)).data.orgId != null
+      );
+    }
+    
     // Bookings - organization members can read, admins can write
     match /bookings/{bookingId} {
       allow read: if request.auth != null && 
