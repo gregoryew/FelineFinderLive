@@ -1816,7 +1816,18 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
     try {
       // Apply security middleware
       securityMiddleware.validateInput(req, res, () => {})
-      securityMiddleware.checkIPWhitelist(req, res, () => {})
+      
+      // Check IP whitelist (only blocks if enabled and IP not in list)
+      let ipCheckPassed = false
+      securityMiddleware.checkIPWhitelist(req, res, () => {
+        ipCheckPassed = true
+      })
+      
+      // If IP whitelist is enabled and IP not allowed, the middleware will have sent a 403 response
+      if (securityConfig.ipWhitelist.enabled && !ipCheckPassed) {
+        // Response already sent by middleware, just return
+        return
+      }
 
       // Handle authentication manually
       const authHeader = req.headers.authorization

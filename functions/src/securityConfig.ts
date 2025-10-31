@@ -49,8 +49,9 @@ export const getSecurityConfig = (): SecurityConfig => {
     },
     
     ipWhitelist: {
-      enabled: !isLocalDevelopment,
-      allowedIPs: isLocalDevelopment ? [] : (process.env.ALLOWED_IPS?.split(',') || [])
+      // Only enable if ALLOWED_IPS is explicitly set (non-empty)
+      enabled: !isLocalDevelopment && !!process.env.ALLOWED_IPS && process.env.ALLOWED_IPS.trim() !== '',
+      allowedIPs: isLocalDevelopment ? [] : (process.env.ALLOWED_IPS?.split(',').map(ip => ip.trim()).filter(ip => ip !== '') || [])
     },
     
     auditLogging: {
