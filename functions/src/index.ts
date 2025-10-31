@@ -4155,3 +4155,6 @@ export const saveWorkSchedule = functions.https.onCall(async (data, context) => 
 
 // Export pets functions
 export { getPets, getPet, savePet, deletePet } from './pets/petsService'
+
+// Export availability functions
+export { getAvailableTimeSlots } from './bookings/availabilityService'
