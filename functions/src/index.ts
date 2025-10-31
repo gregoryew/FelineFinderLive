@@ -820,7 +820,7 @@ export const saveOnboardingStep = functions.https.onCall(async (data, context) =
         onboardingUpdatedAt: FieldValue.serverTimestamp()
       }, { merge: true })
     } else if (step === 'step4') {
-      // Step 4 is team members - save to organization collection
+      // Step 4 is team members - save to top-level team collection
       console.log('DEBUG: Saving step4 - team members:', stepData.users)
       
       // Filter out undefined values
@@ -828,8 +828,27 @@ export const saveOnboardingStep = functions.https.onCall(async (data, context) =
         onboardingUpdatedAt: FieldValue.serverTimestamp()
       }
       
-      if (stepData.users !== undefined) {
-        updateData.users = stepData.users
+      // Get organization name for team member records
+      const orgDoc = await admin.firestore().collection('organizations').doc(orgId).get()
+      const orgData = orgDoc.data()
+      const orgName = orgData?.rescueGroupsName || orgData?.name || ''
+      
+      // Save team members to top-level team collection with email field and orgName
+      if (stepData.users !== undefined && Array.isArray(stepData.users)) {
+        for (const user of stepData.users) {
+          if (user && user.id && user.email) {
+            await admin.firestore().collection('team').doc(user.id).set({
+              id: user.id,
+              name: user.name || '',
+              email: user.email,
+              orgId: orgId,
+              orgName: orgName, // Denormalize org name for quick access
+              role: user.role || 'volunteer',
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true })
+          }
+        }
       }
       
       await admin.firestore().collection('organizations').doc(orgId).set(updateData, { merge: true })
@@ -991,14 +1010,26 @@ export const getOnboardingProgress = functions.https.onCall(async (data, context
     console.log('DEBUG: User data onboarding.operatingHours:', userData?.onboarding?.operatingHours)
     console.log('DEBUG: Organization data:', orgData)
     
+    // Query team members from top-level team collection instead of organizations.users
+    let teamMembers: any[] = []
+    if (orgId) {
+      const teamSnapshot = await admin.firestore().collection('team')
+        .where('orgId', '==', orgId)
+        .get()
+      teamMembers = teamSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      if (teamMembers.length > 0) {
+        onboarding.users = teamMembers
+      }
+    }
+    
     // Add organization data to onboarding
     if (orgData) {
       if (orgData.organizationType) {
         onboarding.organizationType = orgData.organizationType
         console.log('DEBUG: Set organizationType to:', onboarding.organizationType)
-      }
-      if (orgData.users) {
-        onboarding.users = orgData.users
       }
       if (orgData.meetingPreferences) {
         onboarding.meetingPreferences = orgData.meetingPreferences
@@ -1973,13 +2004,20 @@ export const registerUserWithOrganization = functions.https.onRequest(async (req
           })
         }
 
+        // Get organization name from validation data or orgDoc
+        const orgName = validation?.orgData?.attributes?.name || 
+                        orgDocData?.rescueGroupsName || 
+                        orgDocData?.name || ''
+        
         // Create user document
         const userData = {
           createdAt: FieldValue.serverTimestamp(),
           email: decodedToken.email,
           displayName: decodedToken.name || '',
+          name: decodedToken.name || '', // For consistency with team structure
           role: userRole,
           orgId: orgId,
+          orgName: orgName, // Denormalize org name for quick access
           verified: false
         }
 
@@ -3572,24 +3610,21 @@ export const assignVolunteerToBooking = functions.https.onCall(async (data, cont
       throw new functions.https.HttpsError('permission-denied', 'User does not have access to this booking')
     }
 
-    // Get organization to look up team member email from the users array
-    const orgDoc = await admin.firestore().collection('organizations').doc(booking?.orgId).get()
-    const orgData = orgDoc.data()
-    const teamMember = orgData?.users?.find((u: any) => u.id === volunteerId)
+    // Get team member details from top-level team collection
+    const teamMemberDoc = await admin.firestore().collection('team').doc(volunteerId).get()
+    const teamMember = teamMemberDoc.data()
     
     const teamMemberName = volunteerName || teamMember?.name || 'Unknown'
     const teamMemberEmail = teamMember?.email || volunteerEmail || ''
 
     // Update booking with volunteer assignment
     await bookingRef.update({
-      volunteer: teamMemberName,
-      volunteerId: volunteerId,
-      teamMemberId: volunteerId, // Store for lookup in organization's users array
+      teamMemberId: volunteerId, // Single source of truth for team member assignment
       updatedAt: FieldValue.serverTimestamp(),
       auditTrail: admin.firestore.FieldValue.arrayUnion({
-        fieldName: 'volunteer',
-        from: booking.volunteer || '',
-        to: teamMemberName,
+        fieldName: 'teamMemberId',
+        from: booking.teamMemberId || '',
+        to: volunteerId,
         createdAt: FieldValue.serverTimestamp(),
         changedBy: userId
       })
@@ -3906,10 +3941,11 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
       throw new functions.https.HttpsError('failed-precondition', 'Calendar not connected for this organization')
     }
 
-    // Get volunteer/team member email if assigned
+    // Get volunteer/team member email if assigned from top-level team collection
     let volunteerEmail = ''
     if (booking?.teamMemberId) {
-      const teamMember = orgData?.users?.find((u: any) => u.id === booking.teamMemberId)
+      const teamMemberDoc = await admin.firestore().collection('team').doc(booking.teamMemberId).get()
+      const teamMember = teamMemberDoc.data()
       volunteerEmail = teamMember?.email || ''
     }
 
@@ -4006,3 +4042,116 @@ export const syncBookingToCalendar = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('internal', error.message || 'Failed to sync booking to calendar')
   }
 })
+
+// Work Schedule Management
+export const getWorkSchedule = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  try {
+    const userId = context.auth.uid
+
+    // Get user's team document
+    const userDoc = await admin.firestore().collection('team').doc(userId).get()
+    
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found in team collection')
+    }
+
+    const userData = userDoc.data()
+    const operatingHours = userData?.workSchedule || []
+    const scheduleExceptions = userData?.scheduleExceptions || []
+    const userName = userData?.name || userData?.displayName || ''
+
+    return {
+      success: true,
+      operatingHours: operatingHours,
+      scheduleExceptions: scheduleExceptions,
+      userName: userName,
+      workScheduleUpdatedAt: userData?.workScheduleUpdatedAt || null
+    }
+  } catch (error: any) {
+    console.error('Error getting work schedule:', error)
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to get work schedule')
+  }
+})
+
+export const saveWorkSchedule = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  try {
+    const userId = context.auth.uid
+    const { operatingHours, scheduleExceptions, userName } = data
+
+    if (!operatingHours || !Array.isArray(operatingHours)) {
+      throw new functions.https.HttpsError('invalid-argument', 'operatingHours must be an array')
+    }
+
+    // Validate operatingHours structure
+    for (const entry of operatingHours) {
+      if (!entry.day || !entry.startTime || !entry.endTime) {
+        throw new functions.https.HttpsError('invalid-argument', 'Each entry must have day, startTime, and endTime')
+      }
+      
+      if (entry.startTime >= entry.endTime) {
+        throw new functions.https.HttpsError('invalid-argument', `Start time must be before end time for ${entry.day}`)
+      }
+    }
+
+    // Validate scheduleExceptions if provided
+    if (scheduleExceptions !== undefined) {
+      if (!Array.isArray(scheduleExceptions)) {
+        throw new functions.https.HttpsError('invalid-argument', 'scheduleExceptions must be an array')
+      }
+
+      for (const exception of scheduleExceptions) {
+        if (!exception.date || !exception.type) {
+          throw new functions.https.HttpsError('invalid-argument', 'Each exception must have date and type')
+        }
+
+        if (exception.type === 'modified') {
+          if (!exception.startTime || !exception.endTime) {
+            throw new functions.https.HttpsError('invalid-argument', 'Modified exceptions must have startTime and endTime')
+          }
+          if (exception.startTime >= exception.endTime) {
+            throw new functions.https.HttpsError('invalid-argument', `Start time must be before end time for exception on ${exception.date}`)
+          }
+        }
+      }
+    }
+
+    // Update user's team document
+    const updateData: any = {
+      workSchedule: operatingHours,
+      workScheduleUpdatedAt: FieldValue.serverTimestamp()
+    }
+
+    if (scheduleExceptions !== undefined) {
+      // Remove the 'id' field from exceptions before saving (it's frontend-only)
+      updateData.scheduleExceptions = scheduleExceptions.map(({ id, ...rest }) => rest)
+    }
+
+    if (userName) {
+      updateData.name = userName
+      updateData.displayName = userName
+    }
+
+    await admin.firestore().collection('team').doc(userId).set(updateData, { merge: true })
+
+    console.log(`Work schedule saved for user ${userId}`)
+
+    return {
+      success: true,
+      message: 'Work schedule saved successfully'
+    }
+  } catch (error: any) {
+    console.error('Error saving work schedule:', error)
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to save work schedule')
+  }
+})
+
+// Export pets functions
+export { getPets, getPet, savePet, deletePet } from './pets/petsService'

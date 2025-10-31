@@ -6,7 +6,8 @@ import {
   Plus,
   Trash2,
   XCircle,
-  CheckCircle
+  CheckCircle,
+  Calendar
 } from 'lucide-react'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 
@@ -17,9 +18,18 @@ interface OperatingHoursEntry {
   endTime: string   // "12:00"
 }
 
+interface ScheduleException {
+  id: string
+  date: string // 'YYYY-MM-DD'
+  type: 'unavailable' | 'available' | 'modified'
+  startTime?: string // "09:00" (required for 'modified')
+  endTime?: string   // "17:00" (required for 'modified')
+}
+
 const WorkSchedule: React.FC = () => {
   const { user } = useAuth()
   const [operatingHours, setOperatingHours] = useState<OperatingHoursEntry[]>([])
+  const [scheduleExceptions, setScheduleExceptions] = useState<ScheduleException[]>([])
   const [error, setError] = useState<string | null>(null)
   const [userName, setUserName] = useState<string>('')
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -37,12 +47,19 @@ const WorkSchedule: React.FC = () => {
         const result = response.data as { 
           success: boolean; 
           operatingHours: OperatingHoursEntry[]; 
+          scheduleExceptions?: ScheduleException[];
           userName: string;
           workScheduleUpdatedAt?: any;
         }
         
         if (result.success) {
           setOperatingHours(result.operatingHours || [])
+          // Add IDs to scheduleExceptions if they don't have them (from backend)
+          const exceptionsWithIds = (result.scheduleExceptions || []).map((exc, index) => ({
+            ...exc,
+            id: exc.id || `exception-${index}-${Date.now()}`
+          }))
+          setScheduleExceptions(exceptionsWithIds)
           setUserName(result.userName || '')
         }
       } catch (error) {
@@ -73,6 +90,7 @@ const WorkSchedule: React.FC = () => {
       
       await saveWorkScheduleFunc({ 
         operatingHours: operatingHours,
+        scheduleExceptions: scheduleExceptions,
         userName: userName
       })
       
@@ -202,6 +220,55 @@ const WorkSchedule: React.FC = () => {
     
     const sortedEntries = sortOperatingHours(updatedEntries)
     setOperatingHours(sortedEntries)
+  }
+
+  // Schedule Exception handlers
+  const addException = () => {
+    const today = new Date().toISOString().split('T')[0]
+    const newException: ScheduleException = {
+      id: Date.now().toString(),
+      date: today,
+      type: 'unavailable'
+    }
+    setScheduleExceptions([...scheduleExceptions, newException])
+  }
+
+  const removeException = (id: string) => {
+    const updatedExceptions = scheduleExceptions.filter(exception => exception.id !== id)
+    setScheduleExceptions(updatedExceptions)
+  }
+
+  const updateException = (id: string, field: keyof ScheduleException, value: string) => {
+    const updatedExceptions = scheduleExceptions.map(exception => {
+      if (exception.id === id) {
+        const updated = { ...exception, [field]: value }
+        // If type changes to 'modified', ensure startTime and endTime have defaults
+        if (field === 'type' && value === 'modified') {
+          if (!updated.startTime) updated.startTime = '09:00'
+          if (!updated.endTime) updated.endTime = '17:00'
+        }
+        // If type changes away from 'modified', remove times
+        if (field === 'type' && value !== 'modified') {
+          delete updated.startTime
+          delete updated.endTime
+        }
+        return updated
+      }
+      return exception
+    })
+    setScheduleExceptions(updatedExceptions)
+  }
+
+  const validateException = (exception: ScheduleException): string | null => {
+    if (exception.type === 'modified') {
+      if (!exception.startTime || !exception.endTime) {
+        return 'Start time and end time are required for modified schedule'
+      }
+      if (exception.startTime >= exception.endTime) {
+        return 'Start time must be before end time'
+      }
+    }
+    return null
   }
 
   return (
@@ -350,6 +417,149 @@ const WorkSchedule: React.FC = () => {
                             return error ? (
                               <li key={entry.id}>
                                 <strong>{entry.day.charAt(0).toUpperCase() + entry.day.slice(1)}</strong>: {error}
+                              </li>
+                            ) : null
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Schedule Exceptions Section */}
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            <h4 className="text-md font-medium text-gray-900 mb-4">Schedule Exceptions</h4>
+            <p className="text-sm text-gray-500 mb-4">
+              Override your regular schedule for specific dates (e.g., holidays, vacations, special hours)
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h5 className="text-sm font-medium text-gray-700">Date Exceptions</h5>
+                <button
+                  onClick={addException}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Exception
+                </button>
+              </div>
+              
+              {scheduleExceptions.length > 0 ? (
+                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-300">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {scheduleExceptions
+                        .sort((a, b) => a.date.localeCompare(b.date))
+                        .map((exception) => {
+                          const validationError = validateException(exception)
+                          return (
+                            <tr key={exception.id} className={validationError ? 'bg-red-50' : ''}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <input
+                                  type="date"
+                                  value={exception.date}
+                                  onChange={(e) => updateException(exception.id, 'date', e.target.value)}
+                                  className={`border rounded-md px-3 py-1 text-sm ${
+                                    validationError ? 'border-red-300' : 'border-gray-300'
+                                  }`}
+                                />
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <select
+                                  value={exception.type}
+                                  onChange={(e) => updateException(exception.id, 'type', e.target.value)}
+                                  className={`border rounded-md px-3 py-1 text-sm ${
+                                    validationError ? 'border-red-300' : 'border-gray-300'
+                                  }`}
+                                >
+                                  <option value="unavailable">Unavailable</option>
+                                  <option value="available">Available</option>
+                                  <option value="modified">Modified Hours</option>
+                                </select>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {exception.type === 'modified' ? (
+                                  <input
+                                    type="time"
+                                    value={exception.startTime || ''}
+                                    onChange={(e) => updateException(exception.id, 'startTime', e.target.value)}
+                                    className={`border rounded-md px-3 py-1 text-sm ${
+                                      validationError ? 'border-red-300' : 'border-gray-300'
+                                    }`}
+                                  />
+                                ) : (
+                                  <span className="text-sm text-gray-400">—</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {exception.type === 'modified' ? (
+                                  <input
+                                    type="time"
+                                    value={exception.endTime || ''}
+                                    onChange={(e) => updateException(exception.id, 'endTime', e.target.value)}
+                                    className={`border rounded-md px-3 py-1 text-sm ${
+                                      validationError ? 'border-red-300' : 'border-gray-300'
+                                    }`}
+                                  />
+                                ) : (
+                                  <span className="text-sm text-gray-400">—</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                                  onClick={() => removeException(exception.id)}
+                                  className="text-red-600 hover:text-red-900"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No schedule exceptions</p>
+                  <p className="text-sm">Click "Add Exception" to override your regular schedule</p>
+                </div>
+              )}
+
+              {/* Validation Errors for Exceptions */}
+              {scheduleExceptions.some(exception => 
+                validateException(exception) !== null
+              ) && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <XCircle className="h-5 w-5 text-red-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">
+                        Exception Issues Detected
+                      </h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <ul className="list-disc list-inside space-y-1">
+                          {scheduleExceptions.map(exception => {
+                            const error = validateException(exception)
+                            return error ? (
+                              <li key={exception.id}>
+                                <strong>{exception.date}</strong>: {error}
                               </li>
                             ) : null
                           })}

@@ -49,7 +49,7 @@ interface Cat {
 }
 
 type SortDirection = 'asc' | 'desc' | null
-type SortField = 'adopter' | 'startTs' | 'endTs' | 'volunteer' | 'adopterId' | 'catId' | 'calendarId' | 'groupId' | 'shelterId'
+type SortField = 'adopter' | 'startTs' | 'endTs' | 'adopterId' | 'catId' | 'calendarId' | 'groupId' | 'shelterId'
 
 const Bookings: React.FC = () => {
   const { user } = useAuth()
@@ -214,9 +214,9 @@ const Bookings: React.FC = () => {
       setIsBookingModalOpen(true)
       await loadVolunteers()
       
-      // Set volunteer if already assigned (find by name)
-      if (booking.volunteer) {
-        const volunteer = availableVolunteers.find(v => v.name === booking.volunteer)
+      // Set volunteer if already assigned (find by teamMemberId)
+      if (booking.teamMemberId) {
+        const volunteer = availableVolunteers.find(v => v.id === booking.teamMemberId)
         if (volunteer) {
           setSelectedVolunteerId(volunteer.id)
         }
@@ -315,7 +315,7 @@ const Bookings: React.FC = () => {
         booking.cat.toLowerCase().includes(filters.cat.toLowerCase()) &&
         (!fromDate || bookingStartDate >= fromDate) &&
         (!toDate || bookingStartDate <= toDate) &&
-        booking.volunteer.toLowerCase().includes(filters.volunteer.toLowerCase()) &&
+        (booking.teamMemberId ? booking.teamMemberId.toLowerCase().includes(filters.volunteer.toLowerCase()) : false) &&
         (filters.status === '' || booking.status === filters.status) &&
         (filters.statusGroup === '' || statusGroups[filters.statusGroup as keyof typeof statusGroups]?.statuses.includes(booking.status))
       )
@@ -504,7 +504,7 @@ const Bookings: React.FC = () => {
         booking.cat,
         formatDateTime(booking.startTs),
         formatDateTime(booking.endTs),
-        booking.volunteer,
+        booking.teamMemberId || '',
         booking.status
       ])
     ].map(row => row.join(',')).join('\n')
@@ -1116,16 +1116,10 @@ const Bookings: React.FC = () => {
                     {getSortIcon('endTs')}
                   </div>
                 </th>
-                <th 
-                  className="w-1/8 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('volunteer')}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Users className="w-4 h-4 mr-2" />
-                      Volunteer
-                    </div>
-                    {getSortIcon('volunteer')}
+                <th className="w-1/8 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center">
+                    <Users className="w-4 h-4 mr-2" />
+                    Volunteer
                   </div>
                 </th>
                 <th className="w-3/16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1263,7 +1257,7 @@ const Bookings: React.FC = () => {
                                   </div>
                                 </div>
                                 <div className="w-1/8 px-6 py-4 whitespace-nowrap">
-                                  <span className="text-sm text-gray-900">{booking.volunteer}</span>
+                                  <span className="text-sm text-gray-900">{booking.teamMemberId ? 'Assigned' : 'Unassigned'}</span>
                                 </div>
                                 <div className="w-3/16 px-6 py-4 whitespace-nowrap">
                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
@@ -1326,7 +1320,7 @@ const Bookings: React.FC = () => {
                               </div>
                             </td>
                             <td className="w-1/8 px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{booking.volunteer}</span>
+                      <span className="text-sm text-gray-900">{booking.teamMemberId ? 'Assigned' : 'Unassigned'}</span>
                   </td>
                             <td className="w-3/16 px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>

@@ -14,9 +14,7 @@ export interface Booking {
   startTimeZone: string
   endTs: admin.firestore.Timestamp
   endTimeZone: string
-  volunteer: string
-  volunteerId?: string
-  teamMemberId?: string // ID to look up in organization's users array
+  teamMemberId?: string // ID to look up team member (name, email) in team collection
   groupId: number
   shelterId: string
   status: 'pending-shelter-setup' | 'pending-confirmation' | 'confirmed' | 'volunteer-assigned' | 'in-progress' | 'completed' | 'adopted' | 'cancelled'
@@ -84,16 +82,24 @@ export const getBookings = functions.https.onCall(async (data, context) => {
     }
 
     // Get all bookings for this organization
+    // Note: Sorting in memory to avoid requiring composite index
     const bookingsSnapshot = await admin.firestore()
       .collection('bookings')
       .where('orgId', '==', orgId)
-      .orderBy('startTs', 'desc')
       .get()
 
-    const bookings = bookingsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
+    const bookings = bookingsSnapshot.docs.map(doc => {
+      const data = doc.data() as Booking
+      return {
+        id: doc.id,
+        ...data
+      } as Booking
+    }).sort((a, b) => {
+      // Sort by startTs descending (most recent first)
+      const aTs = a.startTs?.toMillis?.() || (a.startTs as any)?._seconds || 0
+      const bTs = b.startTs?.toMillis?.() || (b.startTs as any)?._seconds || 0
+      return bTs - aTs
+    })
 
     console.log(`Retrieved ${bookings.length} bookings for org ${orgId}`)
 
@@ -198,6 +204,29 @@ export const createBooking = functions.https.onCall(async (data, context) => {
       await adopterRef.set(adopterData)
     } else {
       await adopterRef.set(adopterData, { merge: true })
+    }
+
+    // Ensure pet exists in pets collection using catId (RescueGroups animalId) as document ID
+    if (bookingData.catId) {
+      const petRef = admin.firestore().collection('pets').doc(bookingData.catId.toString())
+      const petDoc = await petRef.get()
+      
+      if (!petDoc.exists) {
+        // Create new pet document
+        await petRef.set({
+          catId: bookingData.catId, // RescueGroups animalId (number)
+          assignedVolunteers: [], // Empty initially, can be populated later
+          exceptions: [], // Empty initially, can be populated later
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        })
+        console.log(`Created pet document for catId ${bookingData.catId}`)
+      } else {
+        // Update timestamp if exists
+        await petRef.update({
+          updatedAt: FieldValue.serverTimestamp()
+        })
+      }
     }
 
     console.log(`Created booking ${bookingRef.id} for org ${orgId}`)
@@ -310,6 +339,30 @@ export const updateBooking = functions.https.onCall(async (data, context) => {
         }
         
         await adopterRef.set(updateData, { merge: true })
+      }
+    }
+
+    // Ensure pet document exists if catId is being updated or exists
+    const updatedCatId = updates.catId || existingBooking.catId
+    if (updatedCatId) {
+      const petRef = admin.firestore().collection('pets').doc(updatedCatId.toString())
+      const petDoc = await petRef.get()
+      
+      if (!petDoc.exists) {
+        // Create new pet document if it doesn't exist
+        await petRef.set({
+          catId: updatedCatId,
+          assignedVolunteers: [],
+          exceptions: [],
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        })
+        console.log(`Created pet document for catId ${updatedCatId} during booking update`)
+      } else {
+        // Update timestamp if exists
+        await petRef.update({
+          updatedAt: FieldValue.serverTimestamp()
+        })
       }
     }
 

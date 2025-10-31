@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/auth'
-import { Home, Users, Settings, LogOut, UserPlus, LogIn, Clock } from 'lucide-react'
+import { Home, Users, Settings, LogOut, UserPlus, LogIn, Clock, Cat } from 'lucide-react'
 import { API_CONFIG } from '../config/environment'
 
 interface LayoutProps {
@@ -74,6 +74,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Home', href: '/', icon: Home },
     { name: 'Bookings', href: '/bookings', icon: Users },
     { name: 'Work Time', href: '/work-schedule', icon: Clock },
+    { name: 'Cat Rules', href: '/cat-rules', icon: Cat },
     { 
       name: isOnboardingCompleted ? 'Organization Settings' : 'On Boarding', 
       href: '/onboarding', 

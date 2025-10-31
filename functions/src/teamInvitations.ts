@@ -44,7 +44,15 @@ export const sendTeamMemberInvitations = functions.https.onCall(async (data, con
 
     const orgData = orgDoc.data()
     const orgName = orgData?.rescueGroupsName || 'Your Organization'
-    const teamMembers = orgData?.users || []
+    
+    // Query team members from top-level team collection instead of organizations.users
+    const teamSnapshot = await admin.firestore().collection('team')
+      .where('orgId', '==', orgId)
+      .get()
+    const teamMembers: any[] = teamSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
     
     console.log('Organization data:', { orgId, orgName, teamMembersCount: teamMembers.length, teamMembers })
 

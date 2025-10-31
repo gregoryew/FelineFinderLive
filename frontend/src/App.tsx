@@ -15,6 +15,8 @@ import OrganizationEntry from './pages/OrganizationEntry'
 import SetupConfirmation from './pages/SetupConfirmation'
 import OrganizationJWTVerification from './pages/OrganizationJWTVerification'
 import WorkSchedule from './pages/WorkSchedule'
+import CatRulesList from './pages/CatRulesList'
+import CatRulesDetail from './pages/CatRulesDetail'
 import ErrorPage from './pages/ErrorPage'
 import './App.css'
 
@@ -41,6 +43,8 @@ function App() {
                 <Route path="/setup-confirmation" element={<SetupConfirmation />} />
                 <Route path="/jwt-verification" element={<OrganizationJWTVerification />} />
                 <Route path="/work-schedule" element={<WorkSchedule />} />
+                <Route path="/cat-rules" element={<CatRulesList />} />
+                <Route path="/cat-rules/:catId" element={<CatRulesDetail />} />
               </Routes>
             </Layout>
           } />

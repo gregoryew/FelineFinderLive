@@ -12,9 +12,7 @@ export interface Booking {
   startTimeZone: string
   endTs: Date | Timestamp
   endTimeZone: string
-  volunteer: string
-  volunteerId?: string
-  teamMemberId?: string // ID to look up in organization's users array
+  teamMemberId?: string // ID to look up team member (name, email) in team collection
   groupId: number
   shelterId: number
   status: 'pending-shelter-setup' | 'pending-confirmation' | 'confirmed' | 'volunteer-assigned' | 'in-progress' | 'completed' | 'adopted' | 'cancelled'
